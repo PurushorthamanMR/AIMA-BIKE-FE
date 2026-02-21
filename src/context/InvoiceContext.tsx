@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 import type { Invoice } from '@/types'
-import { MOCK_INVOICES, MOCK_CUSTOMERS } from '@/data/mockData'
+import { MOCK_INVOICES } from '@/data/mockData'
+import { useCustomers } from '@/context/CustomerContext'
 
 const STORAGE_KEY = 'aima_pos_invoices'
 
@@ -30,12 +31,13 @@ function saveInvoices(invoices: Invoice[]) {
 
 export function InvoiceProvider({ children }: { children: ReactNode }) {
   const [invoices, setInvoices] = useState<Invoice[]>(loadInvoices)
+  const { customers } = useCustomers()
 
   const addInvoice = useCallback((data: Omit<Invoice, 'id' | 'invoiceNumber'>): Invoice => {
     const count = invoices.length + 1
     const invoiceNumber = `INV-2024-${String(count).padStart(3, '0')}`
     const id = `inv-${Date.now()}`
-    const customer = MOCK_CUSTOMERS.find((c) => c.id === data.customerId) ?? data.customer
+    const customer = customers.find((c) => c.id === data.customerId) ?? data.customer
 
     const newInvoice: Invoice = {
       ...data,
@@ -47,7 +49,7 @@ export function InvoiceProvider({ children }: { children: ReactNode }) {
     setInvoices(updated)
     saveInvoices(updated)
     return newInvoice
-  }, [invoices])
+  }, [invoices, customers])
 
   return (
     <InvoiceContext.Provider value={{ invoices, addInvoice }}>
