@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MOCK_CUSTOMERS } from '@/data/mockData'
+import { useCustomers } from '@/context/CustomerContext'
 
 export default function Customers() {
+  const { customers } = useCustomers()
   const [searchQuery, setSearchQuery] = useState('')
 
-  const filteredCustomers = MOCK_CUSTOMERS.filter(
+  const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.phone.includes(searchQuery) ||

@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { MOCK_CUSTOMERS } from '@/data/mockData'
+import { useCustomers } from '@/context/CustomerContext'
 import { useInvoices } from '@/context/InvoiceContext'
 import { useProducts } from '@/context/ProductContext'
 import { formatCurrency } from '@/lib/utils'
-import type { InvoiceItem, BikeImage } from '@/types'
+import type { Customer, InvoiceItem, BikeImage } from '@/types'
 import type { Product } from '@/data/mockData'
 import { Camera, X } from 'lucide-react'
 import BillPrint from '@/components/BillPrint'
@@ -14,9 +14,13 @@ import BillPrint from '@/components/BillPrint'
 const BIKE_NAMES = ['AIMA Maverick', 'AIMA Mana', 'AIMA Liberty', 'AIMA Breezy', 'AIMA Aria', 'AIMA JoyBean']
 
 export default function NewInvoice() {
+  const { customers, addCustomer } = useCustomers()
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false)
   const [customerSearch, setCustomerSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<typeof MOCK_CUSTOMERS[0] | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false)
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', phone: '', bikeNumber: '', address: '' })
   const [cart, setCart] = useState<InvoiceItem[]>([])
   const [discount, setDiscount] = useState(0)
   const [paymentType, setPaymentType] = useState<'cash' | 'card' | 'bank' | 'credit'>('cash')
@@ -25,7 +29,19 @@ export default function NewInvoice() {
   const [bikeImages, setBikeImages] = useState<BikeImage[]>([])
   const [createdInvoice, setCreatedInvoice] = useState<import('@/types').Invoice | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const customerDropdownRef = useRef<HTMLDivElement>(null)
   const { addInvoice } = useInvoices()
+
+  useEffect(() => {
+    if (!customerDropdownOpen) return
+    const close = (e: MouseEvent) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setCustomerDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [customerDropdownOpen])
   const { products, deductStock } = useProducts()
   const navigate = useNavigate()
 
@@ -116,16 +132,34 @@ export default function NewInvoice() {
       p.sku?.toLowerCase().includes(productSearch.toLowerCase())
   )
 
-  const filteredCustomers = MOCK_CUSTOMERS.filter(
+  const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
       c.phone.includes(customerSearch) ||
       c.bikeNumber?.toLowerCase().includes(customerSearch.toLowerCase())
   )
 
+  const handleAddCustomer = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newCustomerForm.name.trim() || !newCustomerForm.phone.trim()) return
+    const newCustomer = addCustomer({
+      name: newCustomerForm.name.trim(),
+      phone: newCustomerForm.phone.trim(),
+      bikeNumber: newCustomerForm.bikeNumber.trim() || undefined,
+      address: newCustomerForm.address.trim() || undefined,
+    })
+    setSelectedCustomer(newCustomer)
+    setCustomerSearch(newCustomer.name)
+    setNewCustomerForm({ name: '', phone: '', bikeNumber: '', address: '' })
+    setShowAddCustomerModal(false)
+  }
+
+  const WALK_IN_CUSTOMER: Customer = { id: 'walk-in', name: 'Walk-in', phone: '-' }
+
   const handleCreateInvoice = () => {
     if (cart.length === 0) return
-    const customerId = selectedCustomer?.id ?? MOCK_CUSTOMERS[0].id
+    const customer = selectedCustomer ?? WALK_IN_CUSTOMER
+    const customerId = customer.id
     const today = new Date().toISOString().split('T')[0]
 
     const invoiceItems = cart.map(({ id, productOrService, quantity, price, total }) => ({
@@ -134,7 +168,7 @@ export default function NewInvoice() {
 
     const invoice = addInvoice({
       customerId,
-      customer: selectedCustomer ?? MOCK_CUSTOMERS[0],
+      customer,
       items: invoiceItems,
       subtotal,
       discount,
@@ -171,42 +205,71 @@ export default function NewInvoice() {
       <div className="row g-3">
         {/* Left - Products & Cart */}
         <div className="col-lg-8">
-          {/* Customer Bar */}
-          <div className="card pos-card">
+          {/* Customer Dropdown */}
+          <div className="card pos-card" ref={customerDropdownRef}>
             <div className="card-body py-2">
-              <div className="row align-items-center g-2">
-                <div className="col-md-7">
-                  <Input
-                    placeholder="Phone / Bike No / Name..."
-                    className="form-control form-control-sm"
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                  />
-                  {customerSearch && filteredCustomers.length > 0 && (
-                    <div className="list-group list-group-flush mt-1" style={{ maxHeight: '120px', overflowY: 'auto' }}>
-                      {filteredCustomers.slice(0, 4).map((c) => (
+              <label className="form-label small text-muted mb-1">Customer</label>
+              <div className="position-relative">
+                <button
+                  type="button"
+                  className="form-select form-select-sm text-start"
+                  style={{ minHeight: '38px' }}
+                  onClick={() => setCustomerDropdownOpen((o) => !o)}
+                  aria-expanded={customerDropdownOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span className={selectedCustomer ? '' : 'text-muted'}>
+                    {selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.phone})` : 'Select customer (Walk-in)'}
+                  </span>
+                </button>
+                {customerDropdownOpen && (
+                  <div
+                    className="position-absolute top-100 start-0 end-0 mt-1 border rounded bg-white shadow-sm z-2"
+                    style={{ maxHeight: '280px' }}
+                  >
+                    <div className="p-2 border-bottom">
+                      <Input
+                        placeholder="Search name, phone..."
+                        className="form-control form-control-sm"
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                      {filteredCustomers.map((c) => (
                         <button
                           key={c.id}
                           type="button"
-                          className="list-group-item list-group-item-action list-group-item-sm py-1"
+                          className={`dropdown-item text-start py-2 ${selectedCustomer?.id === c.id ? 'active' : ''}`}
                           onClick={() => {
                             setSelectedCustomer(c)
-                            setCustomerSearch(c.name)
+                            setCustomerDropdownOpen(false)
                           }}
                         >
-                          {c.name} | {c.phone}
+                          <span className="fw-medium">{c.name}</span>
+                          <span className="text-muted small ms-1">({c.phone})</span>
                         </button>
                       ))}
+                      {filteredCustomers.length === 0 && (
+                        <div className="px-3 py-2 text-muted small">No customer found</div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="col-md-5 text-end">
-                  {selectedCustomer ? (
-                    <span className="badge bg-success py-2 px-3">{selectedCustomer.name}</span>
-                  ) : (
-                    <Button size="sm" variant="outline">+ Add Customer</Button>
-                  )}
-                </div>
+                    <div className="border-top p-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-1"
+                        style={{ backgroundColor: '#AA336A', color: 'white' }}
+                        onClick={() => {
+                          setCustomerDropdownOpen(false)
+                          setShowAddCustomerModal(true)
+                        }}
+                      >
+                        + Add Customer
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -433,6 +496,84 @@ export default function NewInvoice() {
           </div>
         </div>
       </div>
+
+      {/* Add Customer Modal */}
+      {showAddCustomerModal && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-50" style={{ zIndex: 1050 }}>
+          <div className="card shadow-lg" style={{ maxWidth: '400px', width: '100%' }}>
+            <div className="card-header d-flex justify-content-between align-items-center py-2">
+              <h6 className="mb-0">Add Customer</h6>
+              <button
+                type="button"
+                className="btn btn-sm btn-link text-secondary p-0"
+                onClick={() => {
+                  setShowAddCustomerModal(false)
+                  setNewCustomerForm({ name: '', phone: '', bikeNumber: '', address: '' })
+                }}
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddCustomer} className="card-body">
+              <div className="mb-2">
+                <label className="form-label small">Name *</label>
+                <Input
+                  className="form-control form-control-sm"
+                  value={newCustomerForm.name}
+                  onChange={(e) => setNewCustomerForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Customer name"
+                  required
+                />
+              </div>
+              <div className="mb-2">
+                <label className="form-label small">Phone *</label>
+                <Input
+                  className="form-control form-control-sm"
+                  type="tel"
+                  value={newCustomerForm.phone}
+                  onChange={(e) => setNewCustomerForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder="e.g. 0771234567"
+                  required
+                />
+              </div>
+              <div className="mb-2">
+                <label className="form-label small">Bike Number</label>
+                <Input
+                  className="form-control form-control-sm"
+                  value={newCustomerForm.bikeNumber}
+                  onChange={(e) => setNewCustomerForm((f) => ({ ...f, bikeNumber: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="mb-3">
+                <label className="form-label small">Address</label>
+                <Input
+                  className="form-control form-control-sm"
+                  value={newCustomerForm.address}
+                  onChange={(e) => setNewCustomerForm((f) => ({ ...f, address: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="d-flex gap-2 justify-content-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddCustomerModal(false)
+                    setNewCustomerForm({ name: '', phone: '', bikeNumber: '', address: '' })
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" style={{ backgroundColor: '#AA336A' }} disabled={!newCustomerForm.name.trim() || !newCustomerForm.phone.trim()}>
+                  Add Customer
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Bill Print Modal */}
       {createdInvoice && (
