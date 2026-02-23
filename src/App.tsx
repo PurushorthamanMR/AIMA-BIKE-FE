@@ -3,15 +3,14 @@ import { useAuth } from '@/hooks/useAuth'
 import Login from '@/pages/auth/Login'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Dashboard from '@/pages/Dashboard'
-import NewInvoice from '@/pages/NewInvoice'
+import POS from '@/pages/POS'
 import Customers from '@/pages/Customers'
-import CreditManagement from '@/pages/CreditManagement'
+import Courier from '@/pages/Courier'
+import Transfer from '@/pages/Transfer'
+import DealerInvoice from '@/pages/DealerInvoice'
+import BikeModels from '@/pages/BikeModels'
 import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
-import InvoiceHistory from '@/pages/InvoiceHistory'
-import InvoiceView from '@/pages/InvoiceView'
-import SalesImages from '@/pages/SalesImages'
-import Stock from '@/pages/Stock'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -22,9 +21,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
+  const { isAuthenticated } = useAuth()
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
       <Route
         path="/"
         element={
@@ -34,17 +34,16 @@ function App() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="pos" element={<NewInvoice />} />
-        <Route path="invoice/history" element={<InvoiceHistory />} />
-        <Route path="invoice/:id" element={<InvoiceView />} />
-        <Route path="sales-images" element={<SalesImages />} />
-        <Route path="stock" element={<Stock />} />
+        <Route path="pos" element={<POS />} />
         <Route path="customers" element={<Customers />} />
-        <Route path="credit" element={<CreditManagement />} />
+        <Route path="courier" element={<Courier />} />
+        <Route path="transfer" element={<Transfer />} />
+        <Route path="dealer-invoice" element={<DealerInvoice />} />
+        <Route path="bike-models" element={<BikeModels />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
     </Routes>
   )
 }

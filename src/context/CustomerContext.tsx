@@ -33,7 +33,11 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
   const addCustomer = useCallback((data: Omit<Customer, 'id'>): Customer => {
     const id = `c-${Date.now()}`
-    const newCustomer: Customer = { ...data, id }
+    const newCustomer: Customer = {
+      ...data,
+      id,
+      bikeNumber: data.bikeNumber ?? data.chassisNumber ?? undefined,
+    }
     setCustomers((prev) => {
       const next = [...prev, newCustomer]
       saveCustomers(next)
