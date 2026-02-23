@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import type { User, UserRole } from '@/types'
-import { validateCredentials } from '@/data/mockCredentials'
+import { login as apiLogin } from '@/lib/authApi'
+import { getToken, setToken } from '@/lib/api'
+import { decodeJwtPayload } from '@/lib/jwt'
 
 const STORAGE_KEY = 'aima_pos_user'
 
@@ -15,15 +17,28 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 function loadStoredUser(): User | null {
   try {
+    const token = getToken()
+    if (!token) return null
+    const payload = decodeJwtPayload(token)
+    if (!payload?.sub) return null
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      const parsed = JSON.parse(stored) as User
-      if (parsed.id && parsed.username && parsed.role) return parsed
+      try {
+        const parsed = JSON.parse(stored) as User
+        if (parsed.id && parsed.username && parsed.role) return parsed
+      } catch {
+        // fall through to build from token
+      }
+    }
+    return {
+      id: String(payload.userId ?? ''),
+      username: payload.sub,
+      role: (payload.role?.toLowerCase() ?? 'staff') as UserRole,
+      name: payload.sub,
     }
   } catch {
-    // ignore
+    return null
   }
-  return null
 }
 
 function saveUser(user: User | null) {
@@ -42,20 +57,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const login = useCallback(async (email: string, password: string) => {
-    const mockUser = validateCredentials(email, password)
-    if (!mockUser) return false
+    const result = await apiLogin(email, password)
+    if (!result.success) return false
 
+    const token = getToken()
+    if (!token) return false
+
+    const payload = decodeJwtPayload(token)
     const userData: User = {
-      id: mockUser.id,
-      username: mockUser.email,
-      role: mockUser.role as UserRole,
-      name: mockUser.name,
+      id: String(payload?.userId ?? ''),
+      username: payload?.sub ?? email,
+      role: (payload?.role?.toLowerCase() ?? 'staff') as UserRole,
+      name: payload?.sub ?? email,
     }
     setUser(userData)
     return true
   }, [])
 
   const logout = useCallback(() => {
+    setToken(null)
     setUser(null)
   }, [])
 

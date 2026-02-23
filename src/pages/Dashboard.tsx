@@ -1,113 +1,153 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { useInvoices } from '@/context/InvoiceContext'
-import { getDashboardStats } from '@/data/mockData'
-import { formatCurrency } from '@/lib/utils'
+import {
+  ShoppingCart,
+  Users,
+  Truck,
+  ArrowRightLeft,
+  FileText,
+  BarChart3,
+  Settings,
+  ChevronRight,
+} from 'lucide-react'
+import { getCustomersPage } from '@/lib/customerApi'
+import { getCouriers } from '@/lib/courierApi'
+import { getTransfers } from '@/lib/transferApi'
+import { getDealerConsignmentNotesPage } from '@/lib/dealerConsignmentNoteApi'
+
+interface DashboardStats {
+  totalCustomers: number
+  totalCouriers: number
+  totalTransfers: number
+  totalDealerNotes: number
+}
+
+const quickLinks = [
+  { path: '/pos', icon: ShoppingCart, label: 'POS', desc: 'Bike, Parts & Service sales' },
+  { path: '/customers', icon: Users, label: 'Customers', desc: 'Customer registry' },
+  { path: '/courier', icon: Truck, label: 'Courier', desc: 'Service courier tracking' },
+  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', desc: 'Stock transfers' },
+  { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', desc: 'Consignment notes' },
+  { path: '/reports', icon: BarChart3, label: 'Reports', desc: 'Sales & analytics' },
+  { path: '/settings', icon: Settings, label: 'Settings', desc: 'System settings' },
+]
 
 export default function Dashboard() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const { invoices } = useInvoices()
-  const stats = getDashboardStats(invoices)
+  const [stats, setStats] = useState<DashboardStats>({
+    totalCustomers: 0,
+    totalCouriers: 0,
+    totalTransfers: 0,
+    totalDealerNotes: 0,
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      getCustomersPage(1, 1, true).then((r) => r?.totalElements ?? 0),
+      getCouriers().then((list) => list?.length ?? 0),
+      getTransfers().then((list) => list?.length ?? 0),
+      getDealerConsignmentNotesPage(1, 1, true).then((r) => r?.totalElements ?? 0),
+    ]).then(([customers, couriers, transfers, dealerNotes]) => {
+      if (!cancelled) {
+        setStats({
+          totalCustomers: customers,
+          totalCouriers: couriers,
+          totalTransfers: transfers,
+          totalDealerNotes: dealerNotes,
+        })
+      }
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <div className="container-fluid">
-      <h2 className="mb-4">Showroom Dashboard</h2>
-
-      {/* Quick Search */}
-      <div className="mb-4">
-        <div className="position-relative" style={{ maxWidth: '400px' }}>
-          <Search className="position-absolute top-50 start-3 translate-middle-y text-muted" size={20} />
-          <Input
-            placeholder="Quick search invoice, customer..."
-            className="ps-5"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 className="mb-1">AIMA Showroom Dashboard</h2>
+          <p className="text-muted mb-0 small">Bike Sales POS - Overview</p>
         </div>
       </div>
 
-      {/* Summary Cards - AIMA POS Stats */}
+      {/* Summary Cards */}
       <div className="row g-3 mb-4">
         <div className="col-md-3">
-          <div className="card shadow-sm dashboard-card dashboard-card-sales">
+          <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
-              <h6 className="text-uppercase fw-semibold">Today's Bike Sales</h6>
-              <h3 className="mb-0 mt-2">{formatCurrency(stats.todaySales)}</h3>
+              <h6 className="text-uppercase fw-semibold text-muted small">Total Customers</h6>
+              <h3 className="mb-0 mt-2">{loading ? '...' : stats.totalCustomers}</h3>
+              <Link to="/customers" className="text-primary small text-decoration-none mt-2 d-inline-flex align-items-center">
+                View <ChevronRight size={14} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card shadow-sm dashboard-card dashboard-card-credit">
+          <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
-              <h6 className="text-uppercase fw-semibold">Credit Pending</h6>
-              <h3 className="mb-0 mt-2">{formatCurrency(stats.creditPending)}</h3>
+              <h6 className="text-uppercase fw-semibold text-muted small">Couriers</h6>
+              <h3 className="mb-0 mt-2">{loading ? '...' : stats.totalCouriers}</h3>
+              <Link to="/courier" className="text-primary small text-decoration-none mt-2 d-inline-flex align-items-center">
+                View <ChevronRight size={14} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card shadow-sm dashboard-card dashboard-card-customers">
+          <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
-              <h6 className="text-uppercase fw-semibold">Total Customers</h6>
-              <h3 className="mb-0 mt-2">{stats.totalCustomers}</h3>
+              <h6 className="text-uppercase fw-semibold text-muted small">Transfers</h6>
+              <h3 className="mb-0 mt-2">{loading ? '...' : stats.totalTransfers}</h3>
+              <Link to="/transfer" className="text-primary small text-decoration-none mt-2 d-inline-flex align-items-center">
+                View <ChevronRight size={14} />
+              </Link>
             </div>
           </div>
         </div>
         <div className="col-md-3">
-          <div className="card shadow-sm dashboard-card dashboard-card-invoices">
+          <div className="card border-0 shadow-sm h-100">
             <div className="card-body">
-              <h6 className="text-uppercase fw-semibold">Recent Invoices</h6>
-              <h3 className="mb-0 mt-2">{stats.recentInvoicesCount}</h3>
+              <h6 className="text-uppercase fw-semibold text-muted small">Dealer Notes</h6>
+              <h3 className="mb-0 mt-2">{loading ? '...' : stats.totalDealerNotes}</h3>
+              <Link to="/dealer-invoice" className="text-primary small text-decoration-none mt-2 d-inline-flex align-items-center">
+                View <ChevronRight size={14} />
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Invoices */}
+      {/* Quick Links */}
       <div className="card border-0 shadow-sm">
-        <div className="card-header bg-white d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Recent Invoices</h5>
-          <Link to="/invoice/history" className="btn btn-sm btn-outline-secondary">
-            View All
-          </Link>
+        <div className="card-header bg-white border-bottom">
+          <h5 className="mb-0">Quick Access</h5>
+          <small className="text-muted">Navigate to main modules</small>
         </div>
         <div className="card-body p-0">
-          {stats.recentInvoices.length > 0 ? (
-            <table className="table table-hover mb-0">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Customer</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Payment</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentInvoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td>
-                      <Link to={`/invoice/${inv.id}`} className="text-decoration-none fw-medium">
-                        {inv.invoiceNumber}
-                      </Link>
-                    </td>
-                    <td>{inv.customer?.name ?? '-'}</td>
-                    <td>{inv.createdAt}</td>
-                    <td>{formatCurrency(inv.grandTotal)}</td>
-                    <td>
-                      <span className="badge bg-secondary text-capitalize">{inv.paymentType}</span>
-                      {inv.balance ? (
-                        <span className="badge bg-warning text-dark ms-1">Credit</span>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-4 text-muted">No recent invoices</div>
-          )}
+          <div className="row g-0">
+            {quickLinks.map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.path} className="col-md-6 col-lg-4 border-bottom border-end">
+                  <Link
+                    to={item.path}
+                    className="d-flex align-items-center p-4 text-decoration-none text-dark"
+                  >
+                    <div className="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                      <Icon size={24} className="text-primary" />
+                    </div>
+                    <div className="flex-grow-1">
+                      <h6 className="mb-0 fw-semibold">{item.label}</h6>
+                      <small className="text-muted">{item.desc}</small>
+                    </div>
+                    <ChevronRight size={20} className="text-muted" />
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

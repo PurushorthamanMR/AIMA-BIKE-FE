@@ -2,24 +2,24 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   LayoutDashboard,
-  FilePlus,
   Users,
-  CreditCard,
   BarChart3,
   Settings,
-  Image,
-  Package,
   ShoppingCart,
+  Truck,
+  ArrowRightLeft,
+  FileText,
+  Bike,
 } from 'lucide-react'
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'staff'] },
   { path: '/pos', icon: ShoppingCart, label: 'POS', roles: ['admin', 'manager', 'staff'] },
-  { path: '/invoice/history', icon: FilePlus, label: 'Invoice History', roles: ['admin', 'manager', 'staff'] },
-  { path: '/sales-images', icon: Image, label: 'Sales Images', roles: ['admin', 'manager', 'staff'] },
-  { path: '/stock', icon: Package, label: 'Stock & Products', roles: ['admin', 'manager'] },
+  { path: '/bike-models', icon: Bike, label: 'Bike Models', roles: ['admin', 'manager', 'staff'] },
   { path: '/customers', icon: Users, label: 'Customers', roles: ['admin', 'manager'] },
-  { path: '/credit', icon: CreditCard, label: 'Credit Management', roles: ['admin', 'manager'] },
+  { path: '/courier', icon: Truck, label: 'Courier', roles: ['admin', 'manager', 'staff'] },
+  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', roles: ['admin', 'manager', 'staff'] },
+  { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', roles: ['admin', 'manager', 'staff'] },
   { path: '/reports', icon: BarChart3, label: 'Reports', roles: ['admin', 'manager'] },
   { path: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
 ]
