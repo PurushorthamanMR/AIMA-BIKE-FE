@@ -1,4 +1,4 @@
-import { apiGet, ApiResponse } from './api'
+import { apiGet, apiPost, apiPut, ApiResponse } from './api'
 
 export interface PaymentDto {
   id: number
@@ -26,6 +26,24 @@ export async function getAllPayments(): Promise<PaymentDto[]> {
     return Array.isArray(data) ? data : []
   }
   return []
+}
+
+export async function savePayment(body: { name: string; isActive?: boolean }): Promise<{ success: boolean; data?: PaymentDto; error?: string }> {
+  const res = await apiPost<PaymentDto>('/payment/save', body)
+  if (res.status && res.responseDto) return { success: true, data: res.responseDto }
+  return { success: false, error: res.errorDescription ?? 'Failed to save payment' }
+}
+
+export async function updatePayment(body: { id: number; name?: string; isActive?: boolean }): Promise<{ success: boolean; data?: PaymentDto; error?: string }> {
+  const res = await apiPost<PaymentDto>('/payment/update', body)
+  if (res.status && res.responseDto) return { success: true, data: res.responseDto }
+  return { success: false, error: res.errorDescription ?? 'Failed to update payment' }
+}
+
+export async function updatePaymentStatus(paymentId: number, status: boolean): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPut<PaymentDto>(`/payment/updateStatus?paymentId=${paymentId}&status=${status}`)
+  if (res.status) return { success: true }
+  return { success: false, error: res.errorDescription ?? 'Failed to update status' }
 }
 
 const PAYMENT_NAME_MAP: Record<string, string> = {

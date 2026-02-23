@@ -9,6 +9,7 @@ import {
   BarChart3,
   Settings,
   ChevronRight,
+  CreditCard,
 } from 'lucide-react'
 import { getCustomersPage } from '@/lib/customerApi'
 import { getCouriers } from '@/lib/courierApi'
@@ -25,6 +26,7 @@ interface DashboardStats {
 const quickLinks = [
   { path: '/pos', icon: ShoppingCart, label: 'POS', desc: 'Bike, Parts & Service sales' },
   { path: '/customers', icon: Users, label: 'Customers', desc: 'Customer registry' },
+  { path: '/payment', icon: CreditCard, label: 'Payment', desc: 'Payment types' },
   { path: '/courier', icon: Truck, label: 'Courier', desc: 'Service courier tracking' },
   { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', desc: 'Stock transfers' },
   { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', desc: 'Consignment notes' },

@@ -2,11 +2,15 @@ import { apiGet, apiPost } from './api'
 
 export interface StockDto {
   id: number
+  noteId?: number
   modelId: number
-  name: string
-  color: string
-  sellingAmount?: number
+  itemCode?: string
+  chassisNumber?: string
+  motorNumber?: string
+  color?: string
   quantity?: number
+  name?: string
+  sellingAmount?: number
   imageUrl?: string
   isActive?: boolean
 }

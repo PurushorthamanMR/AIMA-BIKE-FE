@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { saveDealerConsignmentNote, getDealerConsignmentNotesPage, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
 import { getModelsPage, type ModelDto } from '@/lib/modelApi'
+import { getStocksByModel, type StockDto } from '@/lib/stockApi'
 import { Eye, Plus, Trash2 } from 'lucide-react'
 
 interface FormItem {
@@ -11,6 +12,7 @@ interface FormItem {
   quantity: number
   color?: string
   itemCode?: string
+  stockId?: number
   chassisNumber?: string
   motorNumber?: string
 }
@@ -38,6 +40,7 @@ export default function DealerInvoice() {
   const [viewNote, setViewNote] = useState<DealerConsignmentNoteDto | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [stocksByModel, setStocksByModel] = useState<Record<number, StockDto[]>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -57,6 +60,25 @@ export default function DealerInvoice() {
     })
     return () => { cancelled = true }
   }, [])
+
+  // Load stocks per model when items have modelId set
+  const itemModelIds = form.items.map((it) => it.modelId).filter((id) => id > 0)
+  useEffect(() => {
+    const modelIds = [...new Set(itemModelIds)]
+    if (modelIds.length === 0) return
+    let cancelled = false
+    Promise.all(modelIds.map((modelId) => getStocksByModel(modelId))).then((results) => {
+      if (cancelled) return
+      setStocksByModel((prev) => {
+        const next = { ...prev }
+        modelIds.forEach((modelId, i) => {
+          next[modelId] = results[i] ?? []
+        })
+        return next
+      })
+    })
+    return () => { cancelled = true }
+  }, [itemModelIds.join(',')])
 
   const filteredNotes = notes.filter((n) => {
     const q = searchQuery.toLowerCase().trim()
@@ -88,9 +110,9 @@ export default function DealerInvoice() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
-    const validItems = form.items.filter((it) => it.modelId > 0 && (it.quantity ?? 1) > 0)
+    const validItems = form.items.filter((it) => it.modelId > 0)
     if (validItems.length === 0) {
-      setSaveError('Add at least one item with model and quantity.')
+      setSaveError('Add at least one item with model.')
       return
     }
     const result = await saveDealerConsignmentNote({
@@ -105,7 +127,8 @@ export default function DealerInvoice() {
       contactPerson: form.contactPerson.trim() || undefined,
       items: validItems.map((it) => ({
         modelId: it.modelId,
-        quantity: it.quantity || 1,
+        stockId: it.stockId ?? undefined,
+        quantity: 1,
         color: it.color?.trim() || undefined,
         itemCode: it.itemCode?.trim() || undefined,
         chassisNumber: it.chassisNumber?.trim() || undefined,
@@ -181,12 +204,12 @@ export default function DealerInvoice() {
             <h6 className="border-bottom pb-2 mb-3">Items</h6>
             {form.items.map((it, idx) => (
               <div key={idx} className="row g-2 align-items-end mb-2 p-2 border rounded">
-                <div className="col-md-4">
+                <div className="col-md-3">
                   <label className="form-label small">Model *</label>
                   <select
                     className="form-select form-select-sm"
                     value={it.modelId}
-                    onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0 })}
+                    onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0, stockId: undefined })}
                     required
                   >
                     <option value={0}>Select model</option>
@@ -196,8 +219,34 @@ export default function DealerInvoice() {
                   </select>
                 </div>
                 <div className="col-md-2">
-                  <label className="form-label small">Qty</label>
-                  <Input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(idx, { quantity: parseInt(e.target.value, 10) || 1 })} className="form-control form-control-sm" />
+                  <label className="form-label small">Stock Id</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={it.stockId ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      const stockId = val ? parseInt(val, 10) : undefined
+                      const stocks = stocksByModel[it.modelId] ?? []
+                      const selected = stocks.find((s) => s.id === (stockId ?? 0))
+                      updateItem(idx, {
+                        stockId,
+                        color: selected?.color ?? '',
+                        itemCode: selected?.itemCode ?? it.itemCode,
+                        chassisNumber: selected?.chassisNumber ?? it.chassisNumber,
+                        motorNumber: selected?.motorNumber ?? it.motorNumber,
+                      })
+                    }}
+                    disabled={!it.modelId}
+                  >
+                    <option value="">
+                      {!it.modelId ? 'Select model first' : (stocksByModel[it.modelId] ?? []).length === 0 ? 'No stocks for this model' : 'Select stock'}
+                    </option>
+                    {(stocksByModel[it.modelId] ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.id} - {[s.color, s.itemCode, s.chassisNumber].filter(Boolean).join(' / ') || 'Stock'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="col-md-2">
                   <label className="form-label small">Color</label>
@@ -206,6 +255,14 @@ export default function DealerInvoice() {
                 <div className="col-md-2">
                   <label className="form-label small">Item Code</label>
                   <Input value={it.itemCode} onChange={(e) => updateItem(idx, { itemCode: e.target.value })} placeholder="Code" className="form-control form-control-sm" />
+                </div>
+                <div className="col-md-2">
+                  <label className="form-label small">Chassis Number</label>
+                  <Input value={it.chassisNumber ?? ''} onChange={(e) => updateItem(idx, { chassisNumber: e.target.value })} placeholder="Chassis" className="form-control form-control-sm" />
+                </div>
+                <div className="col-md-2">
+                  <label className="form-label small">Motor Number</label>
+                  <Input value={it.motorNumber ?? ''} onChange={(e) => updateItem(idx, { motorNumber: e.target.value })} placeholder="Motor" className="form-control form-control-sm" />
                 </div>
                 <div className="col-md-1">
                   <Button type="button" variant="outline" size="sm" className="p-1" onClick={() => removeItem(idx)} title="Remove">
@@ -305,14 +362,15 @@ export default function DealerInvoice() {
                         <th>Model</th>
                         <th>Color</th>
                         <th>Item Code</th>
-                        <th>Chassis</th>
-                        <th>Motor</th>
+                        <th>Chassis Number</th>
+                        <th>Motor Number</th>
                         <th>Qty</th>
                       </tr>
                     </thead>
                     <tbody>
                       {viewNote.items?.map((it) => (
                         <tr key={it.id ?? Math.random()}>
+                          <td>{it.stockId ?? '-'}</td>
                           <td>{it.modelDto?.name ?? '-'}</td>
                           <td>{it.color ?? '-'}</td>
                           <td>{it.itemCode ?? '-'}</td>

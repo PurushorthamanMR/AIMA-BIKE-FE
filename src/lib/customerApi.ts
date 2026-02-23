@@ -128,3 +128,66 @@ export async function getCustomersPage(
   if (res.status && res.responseDto) return res.responseDto
   return null
 }
+
+/**
+ * GET /customer/getByCustomerStatus?status=pending|complete|return&pageNumber=1&pageSize=10&isActive=true
+ */
+export interface CustomerStatusPageResponse {
+  content: CustomerDto[]
+  totalElements: number
+  totalPages: number
+  pageNumber: number
+  pageSize: number
+}
+
+export async function getCustomersByStatus(
+  status: string,
+  pageNumber = 1,
+  pageSize = 10,
+  isActive = true
+): Promise<CustomerStatusPageResponse> {
+  const params = new URLSearchParams({
+    status,
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+    isActive: String(isActive),
+  })
+  const res = await apiGet<CustomerStatusPageResponse>(
+    `/customer/getByCustomerStatus?${params.toString()}`
+  )
+  if (res.status && res.responseDto) {
+    const data = res.responseDto as CustomerStatusPageResponse
+    return {
+      content: data.content ?? [],
+      totalElements: data.totalElements ?? 0,
+      totalPages: data.totalPages ?? 0,
+      pageNumber: data.pageNumber ?? pageNumber,
+      pageSize: data.pageSize ?? pageSize,
+    }
+  }
+  return {
+    content: [],
+    totalElements: 0,
+    totalPages: 0,
+    pageNumber: 1,
+    pageSize,
+  }
+}
+
+/**
+ * POST /customer/approved?customerId=1
+ */
+export async function approveCustomer(customerId: number): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CustomerDto>(`/customer/approved?customerId=${customerId}`, {})
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to approve customer' }
+}
+
+/**
+ * POST /customer/return?customerId=1
+ */
+export async function returnCustomer(customerId: number): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CustomerDto>(`/customer/return?customerId=${customerId}`, {})
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to return customer' }
+}

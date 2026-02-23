@@ -10,6 +10,7 @@ import { getModelsPage, getModelsByCategory, type ModelDto } from '@/lib/modelAp
 import { getPaymentByName, getAllPayments, type PaymentDto } from '@/lib/paymentApi'
 import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
 import { getStocksByModel, type StockDto } from '@/lib/stockApi'
+import Swal from 'sweetalert2'
 import { FileUploadField } from '@/components/FileUploadField'
 import { saveCourier } from '@/lib/courierApi'
 import { getCustomersPage, type CustomerDto } from '@/lib/customerApi'
@@ -155,7 +156,7 @@ export default function POS() {
   useEffect(() => {
     let cancelled = false
     setLoadingCategories(true)
-    getCategoriesPage().then((list) => {
+    getCategoriesPage(1, 100, true).then((list) => {
       if (!cancelled) {
         setCategories(list.length > 0 ? list : defaultCategories)
       }
@@ -214,6 +215,8 @@ export default function POS() {
       ...f,
       colourOfVehicle: stock.color || '-',
       sellingPrice: String(stock.sellingAmount ?? 0),
+      chassisNumber: stock.chassisNumber ?? f.chassisNumber ?? '',
+      motorNumber: stock.motorNumber ?? f.motorNumber ?? '',
     }))
     setStep('customer-form')
   }
@@ -327,18 +330,21 @@ export default function POS() {
 
       const result = await saveCustomerWithPaymentOption(req)
       if (result.success) {
-        setSuccess(true)
-        setTimeout(() => {
-          setStep('categories')
-          setSelectedCategory(null)
-          setSelectedModel(null)
-          setSelectedStock(null)
-          setFormData(emptyForm)
-          setCashFormData(emptyCashForm)
-          setLeaseFormData(emptyLeaseForm)
-          setPaymentOption(null)
-          setSuccess(false)
-        }, 2000)
+        await Swal.fire({
+          icon: 'success',
+          title: 'Successfully Saved',
+          text: 'Customer saved to Customers page successfully.',
+        })
+        setSuccess(false)
+        setStep('categories')
+        setSelectedCategory(null)
+        setSelectedModel(null)
+        setSelectedStock(null)
+        setFormData(emptyForm)
+        setCashFormData(emptyCashForm)
+        setLeaseFormData(emptyLeaseForm)
+        setPaymentOption(null)
+        setSuccess(false)
       } else {
         setSaveError(result.error || 'Failed to save customer')
       }
@@ -498,10 +504,6 @@ export default function POS() {
                       <div className="card-body text-center py-3">
                         <div className="rounded-circle mx-auto mb-2" style={{ width: 40, height: 40, backgroundColor: colorHex }} />
                         <h6 className="mb-0">{colorName}</h6>
-                        <small className="text-success fw-medium">{formatCurrency(stock.sellingAmount ?? 0)}</small>
-                        <small className={`d-block mt-1 ${qty === 0 ? 'text-danger' : 'text-muted'}`}>
-                          Stock: {qty}
-                        </small>
                       </div>
                     </div>
                   </div>
@@ -561,7 +563,6 @@ export default function POS() {
                     <div className="col-md-4"><label className="form-label">17. Date of Delivery to Customer</label><Input type="date" value={formData.dateOfDeliveryToCustomer} onChange={(e) => setFormData({ ...formData, dateOfDeliveryToCustomer: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">18. Selling Price</label><Input type="number" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })} required className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">19. Registration Fee</label><Input type="number" value={formData.registrationFee} onChange={(e) => setFormData({ ...formData, registrationFee: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">19. Payment Date</label><Input type="date" value={formData.registrationFeePaymentDate} onChange={(e) => setFormData({ ...formData, registrationFeePaymentDate: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">20. Advance Payment Amount</label><Input type="number" value={formData.advancePaymentAmount} onChange={(e) => setFormData({ ...formData, advancePaymentAmount: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">20. Payment Date</label><Input type="date" value={formData.advancePaymentDate} onChange={(e) => setFormData({ ...formData, advancePaymentDate: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">22. Amount of Balance Payment</label><Input type="number" value={formData.balancePaymentAmount} readOnly className="form-control bg-light" /></div>

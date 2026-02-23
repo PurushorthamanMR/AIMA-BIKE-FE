@@ -10,13 +10,17 @@ import {
   ArrowRightLeft,
   FileText,
   Bike,
+  CreditCard,
+  Layers,
 } from 'lucide-react'
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'staff'] },
   { path: '/pos', icon: ShoppingCart, label: 'POS', roles: ['admin', 'manager', 'staff'] },
+  { path: '/category', icon: Layers, label: 'Category', roles: ['admin', 'manager', 'staff'] },
   { path: '/bike-models', icon: Bike, label: 'Bike Models', roles: ['admin', 'manager', 'staff'] },
   { path: '/customers', icon: Users, label: 'Customers', roles: ['admin', 'manager'] },
+  { path: '/payment', icon: CreditCard, label: 'Payment', roles: ['admin', 'manager', 'staff'] },
   { path: '/courier', icon: Truck, label: 'Courier', roles: ['admin', 'manager', 'staff'] },
   { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', roles: ['admin', 'manager', 'staff'] },
   { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', roles: ['admin', 'manager', 'staff'] },
@@ -31,8 +35,9 @@ interface SidebarProps {
 export default function Sidebar({ collapsed }: SidebarProps) {
   const { user } = useAuth()
 
+  const userRole = user?.role?.toLowerCase()
   const filteredItems = menuItems.filter((item) =>
-    user?.role && item.roles.includes(user.role)
+    !userRole || item.roles.includes(userRole)
   )
 
   const width = collapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'

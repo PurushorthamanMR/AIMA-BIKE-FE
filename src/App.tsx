@@ -9,6 +9,8 @@ import Courier from '@/pages/Courier'
 import Transfer from '@/pages/Transfer'
 import DealerInvoice from '@/pages/DealerInvoice'
 import BikeModels from '@/pages/BikeModels'
+import Category from '@/pages/Category'
+import Payment from '@/pages/Payment'
 import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
 
@@ -40,6 +42,8 @@ function App() {
         <Route path="transfer" element={<Transfer />} />
         <Route path="dealer-invoice" element={<DealerInvoice />} />
         <Route path="bike-models" element={<BikeModels />} />
+        <Route path="category" element={<Category />} />
+        <Route path="payment" element={<Payment />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
