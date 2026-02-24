@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getCouriers, type CourierDto } from '@/lib/courierApi'
-import { Eye } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 
 export default function Courier() {
+  const navigate = useNavigate()
   const [couriers, setCouriers] = useState<CourierDto[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewCourier, setViewCourier] = useState<CourierDto | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,15 +76,14 @@ export default function Courier() {
                         <td>{courier.address ?? '-'}</td>
                         <td>{courier.sentDate ?? '-'}</td>
                         <td>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="p-1"
-                            onClick={() => setViewCourier(courier)}
-                            title="View details"
-                          >
-                            <Eye size={20} className="text-primary" />
-                          </Button>
+                          <div className="d-flex gap-1">
+                            <Button variant="ghost" size="sm" className="p-1" onClick={() => navigate(`/courier/${courier.id}`)} title="View details">
+                              <Eye size={20} className="text-primary" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="p-1" onClick={() => navigate(`/courier/${courier.id}/edit`)} title="Edit (Mark Received)">
+                              <Pencil size={18} className="text-secondary" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -98,36 +98,6 @@ export default function Courier() {
         </div>
       </div>
 
-      {/* View Courier Modal */}
-      {viewCourier && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setViewCourier(null)}>
-          <div className="modal-dialog modal-lg modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Courier Details - {viewCourier.name}</h5>
-                <button type="button" className="btn-close" onClick={() => setViewCourier(null)} aria-label="Close" />
-              </div>
-              <div className="modal-body">
-                <h6 className="border-bottom pb-2 mb-3">Courier Information</h6>
-                <div className="row g-2 mb-4">
-                  <div className="col-md-6"><strong>Name:</strong> {viewCourier.name ?? '-'}</div>
-                  <div className="col-md-6"><strong>Category:</strong> {viewCourier.categoryDto?.name ?? '-'}</div>
-                  <div className="col-md-6"><strong>Customer:</strong> {viewCourier.customerDto?.name ?? '-'}</div>
-                  <div className="col-md-6"><strong>Contact Number:</strong> {viewCourier.contactNumber != null ? String(viewCourier.contactNumber) : '-'}</div>
-                  <div className="col-12"><strong>Address:</strong> {viewCourier.address ?? '-'}</div>
-                  <div className="col-md-6"><strong>Sent Date:</strong> {viewCourier.sentDate ?? '-'}</div>
-                  <div className="col-md-6"><strong>Received Date:</strong> {viewCourier.receivedDate ?? '-'}</div>
-                  <div className="col-md-6"><strong>Receiver Name:</strong> {viewCourier.receivername ?? '-'}</div>
-                  <div className="col-md-6"><strong>Receiver NIC:</strong> {viewCourier.nic ?? '-'}</div>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button variant="outline" onClick={() => setViewCourier(null)}>Close</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

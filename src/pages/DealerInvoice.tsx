@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveDealerConsignmentNote, getDealerConsignmentNotesPage, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
+import { saveDealerConsignmentNote, updateDealerConsignmentNote, getDealerConsignmentNotesPage, getDealerConsignmentNoteById, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
 import { getModelsPage, type ModelDto } from '@/lib/modelApi'
-import { getStocksByModel, type StockDto } from '@/lib/stockApi'
-import { Eye, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import Swal from 'sweetalert2'
 
 interface FormItem {
   modelId: number
@@ -12,7 +13,6 @@ interface FormItem {
   quantity: number
   color?: string
   itemCode?: string
-  stockId?: number
   chassisNumber?: string
   motorNumber?: string
 }
@@ -37,10 +37,10 @@ export default function DealerInvoice() {
   const [loadingModels, setLoadingModels] = useState(true)
   const [form, setForm] = useState(emptyForm)
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewNote, setViewNote] = useState<DealerConsignmentNoteDto | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [stocksByModel, setStocksByModel] = useState<Record<number, StockDto[]>>({})
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -60,25 +60,6 @@ export default function DealerInvoice() {
     })
     return () => { cancelled = true }
   }, [])
-
-  // Load stocks per model when items have modelId set
-  const itemModelIds = form.items.map((it) => it.modelId).filter((id) => id > 0)
-  useEffect(() => {
-    const modelIds = [...new Set(itemModelIds)]
-    if (modelIds.length === 0) return
-    let cancelled = false
-    Promise.all(modelIds.map((modelId) => getStocksByModel(modelId))).then((results) => {
-      if (cancelled) return
-      setStocksByModel((prev) => {
-        const next = { ...prev }
-        modelIds.forEach((modelId, i) => {
-          next[modelId] = results[i] ?? []
-        })
-        return next
-      })
-    })
-    return () => { cancelled = true }
-  }, [itemModelIds.join(',')])
 
   const filteredNotes = notes.filter((n) => {
     const q = searchQuery.toLowerCase().trim()
@@ -107,6 +88,57 @@ export default function DealerInvoice() {
     }))
   }
 
+  const handleEditClick = async (note: DealerConsignmentNoteDto) => {
+    const full = await getDealerConsignmentNoteById(note.id)
+    if (!full) return
+    const items = full.items ?? []
+    const formItems: FormItem[] = items.length > 0
+      ? items.map((it) => {
+          const parts = (it.itemCode ?? '').split('-')
+          const code = parts.length > 1 ? parts.slice(0, -1).join('-') : (it.itemCode ?? '')
+          return {
+            modelId: it.modelId ?? 0,
+            quantity: it.quantity ?? 1,
+            color: it.color ?? '',
+            itemCode: code,
+            chassisNumber: it.chassisNumber ?? '',
+            motorNumber: it.motorNumber ?? '',
+          }
+        })
+      : [{ modelId: 0, quantity: 1 }]
+    setForm({
+      dealerCode: full.dealerCode ?? '',
+      dealerName: full.dealerName ?? '',
+      address: full.address ?? '',
+      consignmentNoteNo: full.consignmentNoteNo ?? '',
+      date: full.date ?? new Date().toISOString().split('T')[0],
+      deliveryMode: full.deliveryMode ?? '',
+      vehicleNo: full.vehicleNo ?? '',
+      references: full.references ?? '',
+      contactPerson: full.contactPerson ?? '',
+      items: formItems,
+    })
+    setEditingId(full.id)
+    setSaveError('')
+    setShowForm(true)
+  }
+
+  const mapItemsForApi = (validItems: FormItem[]) =>
+    validItems.map((it) => {
+      const code = (it.itemCode ?? '').trim()
+      const colorFull = (it.color ?? '').trim()
+      const colorShort = colorFull.length > 5 ? colorFull.substring(0, 5) : colorFull
+      const itemCodeCombined = code && colorShort ? `${code}-${colorShort}` : code || undefined
+      return {
+        modelId: it.modelId,
+        quantity: it.quantity || 1,
+        color: colorFull || undefined,
+        itemCode: itemCodeCombined,
+        chassisNumber: it.chassisNumber?.trim() || undefined,
+        motorNumber: it.motorNumber?.trim() || undefined,
+      }
+    })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
@@ -115,7 +147,7 @@ export default function DealerInvoice() {
       setSaveError('Add at least one item with model.')
       return
     }
-    const result = await saveDealerConsignmentNote({
+    const payload = {
       dealerCode: form.dealerCode.trim(),
       dealerName: form.dealerName.trim(),
       address: form.address.trim() || undefined,
@@ -125,42 +157,48 @@ export default function DealerInvoice() {
       vehicleNo: form.vehicleNo.trim() || undefined,
       references: form.references.trim() || undefined,
       contactPerson: form.contactPerson.trim() || undefined,
-      items: validItems.map((it) => ({
-        modelId: it.modelId,
-        stockId: it.stockId ?? undefined,
-        quantity: 1,
-        color: it.color?.trim() || undefined,
-        itemCode: it.itemCode?.trim() || undefined,
-        chassisNumber: it.chassisNumber?.trim() || undefined,
-        motorNumber: it.motorNumber?.trim() || undefined,
-      })),
-    })
+      items: mapItemsForApi(validItems),
+    }
+    const result = editingId
+      ? await updateDealerConsignmentNote({ ...payload, id: editingId })
+      : await saveDealerConsignmentNote(payload)
     if (result.success) {
       setSaveSuccess(true)
       setForm({ ...emptyForm, items: [{ modelId: 0, quantity: 1 }] })
+      setShowForm(false)
+      setEditingId(null)
       getDealerConsignmentNotesPage(1, 100, true).then((res) => res?.content && setNotes(res.content))
       setTimeout(() => setSaveSuccess(false), 3000)
+      await Swal.fire({
+        icon: 'success',
+        title: editingId ? 'Successfully Updated' : 'Successfully Saved',
+        text: editingId ? 'Dealer invoice updated successfully.' : 'Dealer saved successfully.',
+      })
     } else {
-      setSaveError(result.error || 'Failed to save dealer consignment note')
+      setSaveError(result.error || (editingId ? 'Failed to update' : 'Failed to save dealer consignment note'))
     }
   }
 
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Dealer Invoice (Consignment Note)</h2>
+        <h2 className="mb-0">Dealer Invoice</h2>
+        {!showForm && (
+          <Button onClick={() => { setShowForm(true); setSaveError(''); setEditingId(null); setForm({ ...emptyForm, items: [{ modelId: 0, quantity: 1 }] }) }} style={{ backgroundColor: '#AA336A' }}>
+            <Plus size={18} className="me-1" />
+            Add Dealer Invoice
+          </Button>
+        )}
       </div>
 
-      {/* Dealer Form */}
+      {/* Dealer Form - inline, like Category page style */}
+      {showForm && (
       <div className="card mb-4">
-        <div className="card-header bg-info text-dark">
-          <h5 className="mb-0">New Dealer Consignment Note</h5>
-          <small>Record dealer stock receipt - increases stock</small>
-        </div>
         <form onSubmit={handleSubmit}>
           <div className="card-body">
             {saveError && <div className="alert alert-danger py-2 mb-3">{saveError}</div>}
             {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer consignment note saved successfully.</div>}
+            {editingId && <h6 className="text-muted mb-3">Edit Dealer Invoice</h6>}
             <h6 className="border-bottom pb-2 mb-3">Header</h6>
             <div className="row g-2 mb-4">
               <div className="col-md-6">
@@ -209,7 +247,7 @@ export default function DealerInvoice() {
                   <select
                     className="form-select form-select-sm"
                     value={it.modelId}
-                    onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0, stockId: undefined })}
+                    onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0 })}
                     required
                   >
                     <option value={0}>Select model</option>
@@ -219,42 +257,12 @@ export default function DealerInvoice() {
                   </select>
                 </div>
                 <div className="col-md-2">
-                  <label className="form-label small">Stock Id</label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={it.stockId ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      const stockId = val ? parseInt(val, 10) : undefined
-                      const stocks = stocksByModel[it.modelId] ?? []
-                      const selected = stocks.find((s) => s.id === (stockId ?? 0))
-                      updateItem(idx, {
-                        stockId,
-                        color: selected?.color ?? '',
-                        itemCode: selected?.itemCode ?? it.itemCode,
-                        chassisNumber: selected?.chassisNumber ?? it.chassisNumber,
-                        motorNumber: selected?.motorNumber ?? it.motorNumber,
-                      })
-                    }}
-                    disabled={!it.modelId}
-                  >
-                    <option value="">
-                      {!it.modelId ? 'Select model first' : (stocksByModel[it.modelId] ?? []).length === 0 ? 'No stocks for this model' : 'Select stock'}
-                    </option>
-                    {(stocksByModel[it.modelId] ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.id} - {[s.color, s.itemCode, s.chassisNumber].filter(Boolean).join(' / ') || 'Stock'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-2">
                   <label className="form-label small">Color</label>
-                  <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value })} placeholder="Color" className="form-control form-control-sm" />
+                  <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value })} placeholder="Color (max 5 chars used in code)" className="form-control form-control-sm" />
                 </div>
                 <div className="col-md-2">
                   <label className="form-label small">Item Code</label>
-                  <Input value={it.itemCode} onChange={(e) => updateItem(idx, { itemCode: e.target.value })} placeholder="Code" className="form-control form-control-sm" />
+                  <Input value={it.itemCode} onChange={(e) => updateItem(idx, { itemCode: e.target.value })} placeholder="Code only (e.g. A500)" className="form-control form-control-sm" />
                 </div>
                 <div className="col-md-2">
                   <label className="form-label small">Chassis Number</label>
@@ -276,17 +284,23 @@ export default function DealerInvoice() {
               Add Item
             </Button>
           </div>
-          <div className="card-footer">
+          <div className="card-footer d-flex justify-content-between align-items-center">
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null) }}>
+              Cancel
+            </Button>
             <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
-              Save Dealer Consignment Note
+              {editingId ? 'Update Dealer' : 'Save Dealer'}
             </Button>
           </div>
         </form>
       </div>
+      )}
 
-      {/* Table */}
+      {/* Table - only show when form is hidden */}
+      {!showForm && (
       <div className="card">
         <div className="card-body">
+          {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer consignment note saved successfully.</div>}
           <Input
             placeholder="Search by dealer code, name, consignment no..."
             className="mb-3"
@@ -319,9 +333,16 @@ export default function DealerInvoice() {
                         <td>{n.date ?? '-'}</td>
                         <td>{n.items?.length ?? 0} item(s)</td>
                         <td>
-                          <Button variant="ghost" size="sm" className="p-1" onClick={() => setViewNote(n)} title="View">
-                            <Eye size={20} className="text-primary" />
-                          </Button>
+                          <div className="d-flex gap-1">
+                            <Button variant="ghost" size="sm" className="p-1" title="Edit" onClick={() => handleEditClick(n)}>
+                              <Pencil size={20} className="text-warning" />
+                            </Button>
+                            <Link to={`/dealer-invoice/${n.id}`} className="text-decoration-none">
+                              <Button variant="ghost" size="sm" className="p-1" title="View">
+                                <Eye size={20} className="text-primary" />
+                              </Button>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -333,62 +354,6 @@ export default function DealerInvoice() {
           )}
         </div>
       </div>
-
-      {viewNote && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setViewNote(null)}>
-          <div className="modal-dialog modal-lg modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Dealer Consignment Note - {viewNote.consignmentNoteNo}</h5>
-                <button type="button" className="btn-close" onClick={() => setViewNote(null)} aria-label="Close" />
-              </div>
-              <div className="modal-body">
-                <h6 className="border-bottom pb-2 mb-3">Header</h6>
-                <div className="row g-2 mb-4">
-                  <div className="col-md-6"><strong>Dealer Code:</strong> {viewNote.dealerCode ?? '-'}</div>
-                  <div className="col-md-6"><strong>Dealer Name:</strong> {viewNote.dealerName ?? '-'}</div>
-                  <div className="col-md-6"><strong>Date:</strong> {viewNote.date ?? '-'}</div>
-                  <div className="col-md-6"><strong>Contact Person:</strong> {viewNote.contactPerson ?? '-'}</div>
-                  <div className="col-12"><strong>Address:</strong> {viewNote.address ?? '-'}</div>
-                  <div className="col-md-6"><strong>Delivery Mode:</strong> {viewNote.deliveryMode ?? '-'}</div>
-                  <div className="col-md-6"><strong>Vehicle No:</strong> {viewNote.vehicleNo ?? '-'}</div>
-                  <div className="col-12"><strong>References:</strong> {viewNote.references ?? '-'}</div>
-                </div>
-                <h6 className="border-bottom pb-2 mb-3">Items</h6>
-                <div className="table-responsive">
-                  <table className="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Model</th>
-                        <th>Color</th>
-                        <th>Item Code</th>
-                        <th>Chassis Number</th>
-                        <th>Motor Number</th>
-                        <th>Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {viewNote.items?.map((it) => (
-                        <tr key={it.id ?? Math.random()}>
-                          <td>{it.stockId ?? '-'}</td>
-                          <td>{it.modelDto?.name ?? '-'}</td>
-                          <td>{it.color ?? '-'}</td>
-                          <td>{it.itemCode ?? '-'}</td>
-                          <td>{it.chassisNumber ?? '-'}</td>
-                          <td>{it.motorNumber ?? '-'}</td>
-                          <td>{it.quantity ?? '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <Button variant="outline" onClick={() => setViewNote(null)}>Close</Button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

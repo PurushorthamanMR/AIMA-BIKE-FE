@@ -1,11 +1,233 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getCustomersByStatus, approveCustomer, returnCustomer, type CustomerDto } from '@/lib/customerApi'
-import { formatCurrency } from '@/lib/utils'
-import { Eye, Pencil, ArrowLeft } from 'lucide-react'
+import { getCustomersByStatus, approveCustomer, returnCustomer, updateCustomer, updateCash, updateLease, type CustomerDto } from '@/lib/customerApi'
+import { formatCurrency, formatDateDDMMYYYY } from '@/lib/utils'
+import { Eye, FileDown, Pencil, ArrowLeft } from 'lucide-react'
 import { UploadDisplay } from '@/components/UploadDisplay'
-import { isUploadPath } from '@/lib/uploadApi'
+import { FileUploadField } from '@/components/FileUploadField'
+import { isUploadPath, getUploadUrl } from '@/lib/uploadApi'
+import { jsPDF } from 'jspdf'
+import Swal from 'sweetalert2'
+
+const PAGE_W = 210
+const MARGIN = 15
+const COL1_X = MARGIN
+const COL2_X = 110
+const ROW_H = 6
+const IMG_W = 45
+const IMG_H = 35
+
+type DisplayCustomer = ReturnType<typeof dtoToDisplay>
+
+function fmtVal(v: string | number | undefined): string {
+  return v != null && v !== '' ? String(v) : '-'
+}
+
+async function pathToDataUrl(path: string): Promise<string | null> {
+  try {
+    let url: string
+    if (path.startsWith('http') || path.startsWith('data:')) {
+      url = path
+    } else if (isUploadPath(path)) {
+      const u = await getUploadUrl(path)
+      if (!u) return null
+      url = u
+    } else {
+      return null
+    }
+    const res = await fetch(url)
+    const blob = await res.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+async function downloadCustomerDetailPDF(c: DisplayCustomer) {
+  const doc = new jsPDF()
+  let y = 15
+
+  // Title - matches card header "Customer Details - {name}"
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Customer Details - ${c.name ?? 'N/A'}`, PAGE_W / 2, y, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  y += 12
+
+  const row = (label: string, val: string | number | undefined, col: 1 | 2 = 1) => {
+    if (y > 285) { doc.addPage(); y = 15 }
+    const x = col === 1 ? COL1_X : COL2_X
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(`${label}:`, x, y)
+    doc.setFont('helvetica', 'normal')
+    const labelW = doc.getTextWidth(`${label}: `)
+    doc.text(fmtVal(val), x + labelW, y, { maxWidth: (col === 1 ? COL2_X : PAGE_W - MARGIN) - x - labelW - 2 })
+    if (col === 2) y += ROW_H
+  }
+
+  const row2 = (label: string, val: string | number | undefined) => {
+    if (y > 285) { doc.addPage(); y = 15 }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(`${label}:`, COL1_X, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(fmtVal(val), COL1_X + doc.getTextWidth(`${label}: `), y, { maxWidth: PAGE_W - MARGIN - COL1_X - 10 })
+    y += ROW_H
+  }
+
+  // Section: Customer Details (matches h6 border-bottom)
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Customer Details', MARGIN, y)
+  doc.setDrawColor(200, 200, 200)
+  doc.line(MARGIN, y + 2, PAGE_W - MARGIN, y + 2)
+  y += 10
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+
+  row('Name in Full', c.nameInFull ?? c.name, 1)
+  row('Contact Number', c.phone, 2)
+  row('Address', c.address, 1)
+  row('Province', c.province, 2)
+  row('District', c.district, 1)
+  row('Occupation', c.occupation, 2)
+  row('Date of Birth', formatDateDDMMYYYY(c.dateOfBirth), 1)
+  row('Religion', c.religion, 2)
+  row('WhatsApp Number', c.whatsAppNumber, 1)
+  row('NIC/Business Reg No', c.nicOrBusinessRegNo, 2)
+  y += 4
+
+  // Section: Vehicle Purchase Details
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Vehicle Purchase Details', MARGIN, y)
+  doc.line(MARGIN, y + 2, PAGE_W - MARGIN, y + 2)
+  y += 10
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+
+  row('Model', c.model, 1)
+  row('Chassis Number', c.chassisNumber, 2)
+  row('Motor Number', c.motorNumber, 1)
+  row('Colour', c.colourOfVehicle, 2)
+  row('Date of Purchase', formatDateDDMMYYYY(c.dateOfPurchase), 1)
+  row('Selling Price', c.sellingPrice != null ? formatCurrency(c.sellingPrice) : undefined, 2)
+  row('Registration Fee', c.registrationFee != null ? formatCurrency(c.registrationFee) : undefined, 1)
+  row('Advance Payment', c.advancePaymentAmount != null ? formatCurrency(c.advancePaymentAmount) : undefined, 2)
+  row('Advance Date', formatDateDDMMYYYY(c.advancePaymentDate), 1)
+  row('Balance Amount', c.balancePaymentAmount != null ? formatCurrency(c.balancePaymentAmount) : undefined, 2)
+  row('Balance Date', formatDateDDMMYYYY(c.balancePaymentDate), 1)
+  row('Payment Type', c.paymentType, 2)
+  row('Date of Delivery', formatDateDDMMYYYY(c.dateOfDeliveryToCustomer), 1)
+  row('AIMA CARE Loyalty Card', c.aimaCareLoyaltyCardNo, 2)
+  y += 4
+
+  const addImageBlock = async (label: string, path: string | undefined, x: number): Promise<number> => {
+    let ny = y
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.text(`${label}:`, x, ny)
+    ny += 4
+    if (path && (isUploadPath(path) || path.startsWith('http') || path.startsWith('data:'))) {
+      const dataUrl = await pathToDataUrl(path)
+      if (dataUrl && dataUrl.startsWith('data:image/')) {
+        if (ny + IMG_H > 285) { doc.addPage(); ny = 15; doc.setFont('helvetica', 'normal'); doc.setFontSize(9) }
+        const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/gif') ? 'GIF' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG'
+        try {
+          doc.addImage(dataUrl, fmt, x, ny, IMG_W, IMG_H)
+        } catch {
+          doc.setFont('helvetica', 'normal')
+          doc.text('Uploaded', x, ny + 5)
+        }
+        ny += IMG_H + 4
+      } else if (dataUrl && dataUrl.startsWith('data:application/pdf')) {
+        doc.setFont('helvetica', 'normal')
+        doc.text('PDF document', x, ny + 5)
+        ny += 10
+      } else {
+        doc.setFont('helvetica', 'normal')
+        doc.text('Uploaded', x, ny + 5)
+        ny += 10
+      }
+    } else {
+      doc.setFont('helvetica', 'normal')
+      doc.text(path ? path : '-', x, ny + 5)
+      ny += 10
+    }
+    return ny
+  }
+
+  if (c.paymentOption === 'cash' && c.cashData) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('Cash - Requirement for registration', MARGIN, y)
+    doc.line(MARGIN, y + 2, PAGE_W - MARGIN, y + 2)
+    y += 10
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+
+    const cashItems = [
+      { label: 'Copy of NIC', path: c.cashData.copyOfNic },
+      { label: 'Photograph 1', path: c.cashData.photographOne },
+      { label: 'Photograph 2', path: c.cashData.photographTwo },
+      { label: 'Payment Receipt', path: c.cashData.paymentReceipt },
+      { label: 'MTA 2', path: c.cashData.mta2 },
+      { label: 'Slip', path: c.cashData.slip },
+    ]
+    let rowY = y
+    for (let i = 0; i < cashItems.length; i += 2) {
+      const left = cashItems[i]
+      const right = cashItems[i + 1]
+      const yLeft = await addImageBlock(left.label, left.path, COL1_X)
+      const yRight = right ? await addImageBlock(right.label, right.path, COL2_X) : rowY
+      rowY = Math.max(yLeft, yRight)
+      y = rowY
+    }
+    row2('Cheque Number', c.cashData.chequeNumber != null ? String(c.cashData.chequeNumber) : undefined)
+    y += 4
+  }
+
+  if (c.paymentOption === 'lease' && c.leaseData) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.text('Lease - Requirement for registration', MARGIN, y)
+    doc.line(MARGIN, y + 2, PAGE_W - MARGIN, y + 2)
+    y += 10
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+
+    row('Company Name', fmtUpload(c.leaseData.companyName), 1)
+    row('Purchase Order Number', c.leaseData.purchaseOrderNumber != null ? String(c.leaseData.purchaseOrderNumber) : undefined, 2)
+
+    const leaseItems = [
+      { label: 'Copy of NIC', path: c.leaseData.copyOfNic },
+      { label: 'Photograph 1', path: c.leaseData.photographOne },
+      { label: 'Photograph 2', path: c.leaseData.photographTwo },
+      { label: 'Payment Receipt', path: c.leaseData.paymentReceipt },
+      { label: 'MTA 2', path: c.leaseData.mta2 },
+      { label: 'MTA 3', path: c.leaseData.mta3 },
+    ]
+    let rowY = y
+    for (let i = 0; i < leaseItems.length; i += 2) {
+      const left = leaseItems[i]
+      const right = leaseItems[i + 1]
+      const yLeft = await addImageBlock(left.label, left.path, COL1_X)
+      const yRight = right ? await addImageBlock(right.label, right.path, COL2_X) : rowY
+      rowY = Math.max(yLeft, yRight)
+      y = rowY
+    }
+    row2('Cheque Number', c.leaseData.chequeNumber != null ? String(c.leaseData.chequeNumber) : undefined)
+  }
+
+  doc.save(`Customer-${c.name ?? c.id}-Details.pdf`)
+}
 
 function dtoToDisplay(c: CustomerDto) {
   return {
@@ -14,7 +236,7 @@ function dtoToDisplay(c: CustomerDto) {
     phone: c.contactNumber != null ? String(c.contactNumber) : '',
     bikeNumber: c.chassisNumber,
     chassisNumber: c.chassisNumber,
-    address: c.address,
+    address: c.address ?? '',
     nameInFull: c.name,
     province: c.province ?? '',
     district: c.district ?? '',
@@ -22,13 +244,14 @@ function dtoToDisplay(c: CustomerDto) {
     dateOfBirth: c.dateOfBirth ?? '',
     religion: c.religion ?? '',
     whatsAppNumber: c.whatsappNumber != null ? String(c.whatsappNumber) : '',
-    nicOrBusinessRegNo: c.nic,
+    nicOrBusinessRegNo: c.nic ?? '',
     model: c.modelDto?.name ?? '',
-    motorNumber: c.motorNumber,
-    colourOfVehicle: c.colorOfVehicle,
-    dateOfPurchase: c.dateOfPurchase,
+    modelId: c.modelId ?? c.modelDto?.id,
+    motorNumber: c.motorNumber ?? '',
+    colourOfVehicle: c.colorOfVehicle ?? '',
+    dateOfPurchase: c.dateOfPurchase ?? '',
     aimaCareLoyaltyCardNo: c.loyalityCardNo != null ? String(c.loyalityCardNo) : '',
-    dateOfDeliveryToCustomer: c.dateOfDelivery,
+    dateOfDeliveryToCustomer: c.dateOfDelivery ?? '',
     sellingPrice: c.sellingAmount,
     registrationFee: c.registrationFees,
     advancePaymentAmount: c.advancePaymentAmount,
@@ -36,6 +259,7 @@ function dtoToDisplay(c: CustomerDto) {
     balancePaymentAmount: c.balancePaymentAmount,
     balancePaymentDate: c.balancePaymentDate ?? '',
     paymentType: c.paymentDto?.name ?? '',
+    paymentId: c.paymentId ?? c.paymentDto?.id,
     paymentOption: c.cashData ? ('cash' as const) : c.leaseData ? ('lease' as const) : undefined,
     cashData: c.cashData,
     leaseData: c.leaseData,
@@ -84,6 +308,7 @@ export default function Customers() {
   const [editCustomer, setEditCustomer] = useState<ReturnType<typeof dtoToDisplay> | null>(null)
   const [actionError, setActionError] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -150,39 +375,104 @@ export default function Customers() {
     }
   }
 
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editCustomer?.id) return
+    setActionError('')
+    setActionLoading(true)
+    const customerId = parseInt(editCustomer.id, 10)
+    const parseNum = (s: string) => { const n = parseInt(String(s || ''), 10); return !isNaN(n) ? n : undefined }
+    const req = {
+      id: customerId,
+      name: editCustomer.nameInFull ?? editCustomer.name,
+      address: editCustomer.address,
+      province: editCustomer.province,
+      district: editCustomer.district,
+      occupation: editCustomer.occupation,
+      religion: editCustomer.religion,
+      nic: editCustomer.nicOrBusinessRegNo,
+      chassisNumber: editCustomer.chassisNumber,
+      motorNumber: editCustomer.motorNumber,
+      colorOfVehicle: editCustomer.colourOfVehicle,
+      modelId: editCustomer.modelId,
+      paymentId: editCustomer.paymentId,
+      dateOfBirth: editCustomer.dateOfBirth || undefined,
+      contactNumber: parseNum(editCustomer.phone),
+      whatsappNumber: parseNum(editCustomer.whatsAppNumber),
+      dateOfPurchase: editCustomer.dateOfPurchase || undefined,
+      loyalityCardNo: parseNum(editCustomer.aimaCareLoyaltyCardNo),
+      dateOfDelivery: editCustomer.dateOfDeliveryToCustomer || undefined,
+      sellingAmount: editCustomer.sellingPrice ?? undefined,
+      registrationFees: editCustomer.registrationFee ?? undefined,
+      advancePaymentAmount: editCustomer.advancePaymentAmount ?? undefined,
+      advancePaymentDate: editCustomer.advancePaymentDate || undefined,
+      balancePaymentAmount: editCustomer.balancePaymentAmount ?? undefined,
+      balancePaymentDate: editCustomer.balancePaymentDate || undefined,
+    }
+    const result = await updateCustomer(req)
+    let err = result.success ? '' : (result.error ?? 'Failed to update customer')
+    if (result.success && editCustomer.paymentOption === 'cash' && editCustomer.cashData?.id) {
+      const cashRes = await updateCash({
+        id: editCustomer.cashData.id,
+        customerId,
+        copyOfNic: editCustomer.cashData.copyOfNic,
+        photographOne: editCustomer.cashData.photographOne,
+        photographTwo: editCustomer.cashData.photographTwo,
+        paymentReceipt: editCustomer.cashData.paymentReceipt,
+        mta2: editCustomer.cashData.mta2,
+        slip: editCustomer.cashData.slip,
+        chequeNumber: parseNum(String(editCustomer.cashData.chequeNumber ?? '')),
+      })
+      if (!cashRes.success) err = cashRes.error ?? 'Failed to update cash'
+    }
+    if (result.success && !err && editCustomer.paymentOption === 'lease' && editCustomer.leaseData?.id) {
+      const leaseRes = await updateLease({
+        id: editCustomer.leaseData.id,
+        customerId,
+        companyName: editCustomer.leaseData.companyName,
+        purchaseOrderNumber: parseNum(String(editCustomer.leaseData.purchaseOrderNumber ?? '')),
+        copyOfNic: editCustomer.leaseData.copyOfNic,
+        photographOne: editCustomer.leaseData.photographOne,
+        photographTwo: editCustomer.leaseData.photographTwo,
+        paymentReceipt: editCustomer.leaseData.paymentReceipt,
+        mta2: editCustomer.leaseData.mta2,
+        mta3: editCustomer.leaseData.mta3,
+        chequeNumber: parseNum(String(editCustomer.leaseData.chequeNumber ?? '')),
+      })
+      if (!leaseRes.success) err = leaseRes.error ?? 'Failed to update lease'
+    }
+    setActionLoading(false)
+    setActionError(err)
+    if (result.success && !err) {
+      await Swal.fire({ icon: 'success', title: 'Saved', text: 'Customer updated successfully.' })
+      refreshAll()
+      setEditCustomer(null)
+    }
+  }
+
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Customers</h2>
       </div>
 
-      {/* Customer details inline (form) - show for both View and Edit */}
+      {/* Customer details inline - View (read-only) or Edit (form) */}
       {(viewCustomer || editCustomer) && (() => {
         const detailCustomer = editCustomer ?? viewCustomer
+        const isEdit = !!editCustomer
         return (
         <div className="card mb-4">
           <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <h5 className="mb-0">Customer Details - {detailCustomer.name}</h5>
+            <h5 className="mb-0">{isEdit ? 'Edit' : 'Customer Details'} - {detailCustomer.name}</h5>
             <div className="d-flex flex-wrap gap-2 align-items-center">
-              {editCustomer && (
+              <Button variant="outline" size="sm" disabled={pdfLoading} onClick={async () => { setPdfLoading(true); await downloadCustomerDetailPDF(detailCustomer); setPdfLoading(false); }} style={{ borderColor: '#AA336A', color: '#AA336A' }}>
+                <FileDown size={16} className="me-1" />
+                {pdfLoading ? 'Generating...' : 'PDF'}
+              </Button>
+              {editCustomer && statusFilter === 'pending' && (
                 <>
-                  <Button
-                    size="sm"
-                    style={{ backgroundColor: '#28a745', color: 'white' }}
-                    onClick={handleApproved}
-                    disabled={actionLoading}
-                  >
-                    Approved
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-info border-info"
-                    onClick={handleReturn}
-                    disabled={actionLoading}
-                  >
-                    Return
-                  </Button>
+                  <Button size="sm" style={{ backgroundColor: '#28a745', color: 'white' }} onClick={handleApproved} disabled={actionLoading}>Approved</Button>
+                  <Button size="sm" variant="outline" className="text-info border-info" onClick={handleReturn} disabled={actionLoading}>Return</Button>
                 </>
               )}
               <Button variant="outline" size="sm" onClick={() => { setViewCustomer(null); setEditCustomer(null); setActionError(''); }}>
@@ -193,6 +483,74 @@ export default function Customers() {
           </div>
           <div className="card-body">
             {actionError && <div className="alert alert-danger py-2">{actionError}</div>}
+            {isEdit ? (
+              <form onSubmit={handleSaveEdit}>
+                <h6 className="border-bottom pb-2 mb-3">Customer Details</h6>
+                <div className="row g-2 mb-4">
+                  <div className="col-md-6"><label className="form-label">Name in Full</label><Input className="form-control" value={detailCustomer.nameInFull ?? detailCustomer.name ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, nameInFull: e.target.value, name: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Contact Number</label><Input type="tel" className="form-control" value={detailCustomer.phone ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, phone: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Address</label><Input className="form-control" value={detailCustomer.address ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, address: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Province</label><Input className="form-control" value={detailCustomer.province ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, province: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">District</label><Input className="form-control" value={detailCustomer.district ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, district: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Occupation</label><Input className="form-control" value={detailCustomer.occupation ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, occupation: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Date of Birth</label><Input type="date" className="form-control" value={detailCustomer.dateOfBirth ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, dateOfBirth: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Religion</label><Input className="form-control" value={detailCustomer.religion ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, religion: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">WhatsApp Number</label><Input type="tel" className="form-control" value={detailCustomer.whatsAppNumber ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, whatsAppNumber: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">NIC/Business Reg No</label><Input className="form-control" value={detailCustomer.nicOrBusinessRegNo ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, nicOrBusinessRegNo: e.target.value })} /></div>
+                </div>
+                <h6 className="border-bottom pb-2 mb-3">Vehicle Purchase Details</h6>
+                <div className="row g-2 mb-4">
+                  <div className="col-md-6"><label className="form-label">Model</label><Input className="form-control" value={detailCustomer.model ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, model: e.target.value })} readOnly /></div>
+                  <div className="col-md-6"><label className="form-label">Chassis Number</label><Input className="form-control" value={detailCustomer.chassisNumber ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, chassisNumber: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Motor Number</label><Input className="form-control" value={detailCustomer.motorNumber ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, motorNumber: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Colour</label><Input className="form-control" value={detailCustomer.colourOfVehicle ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, colourOfVehicle: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Date of Purchase</label><Input type="date" className="form-control" value={detailCustomer.dateOfPurchase ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, dateOfPurchase: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Selling Price</label><Input type="number" className="form-control" value={detailCustomer.sellingPrice ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, sellingPrice: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>
+                  <div className="col-md-6"><label className="form-label">Registration Fee</label><Input type="number" className="form-control" value={detailCustomer.registrationFee ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, registrationFee: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>
+                  <div className="col-md-6"><label className="form-label">Advance Payment</label><Input type="number" className="form-control" value={detailCustomer.advancePaymentAmount ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, advancePaymentAmount: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>
+                  <div className="col-md-6"><label className="form-label">Advance Date</label><Input type="date" className="form-control" value={detailCustomer.advancePaymentDate ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, advancePaymentDate: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Balance Amount</label><Input type="number" className="form-control" value={detailCustomer.balancePaymentAmount ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, balancePaymentAmount: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>
+                  <div className="col-md-6"><label className="form-label">Balance Date</label><Input type="date" className="form-control" value={detailCustomer.balancePaymentDate ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, balancePaymentDate: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Payment Type</label><Input className="form-control" value={detailCustomer.paymentType ?? ''} readOnly /></div>
+                  <div className="col-md-6"><label className="form-label">Date of Delivery</label><Input type="date" className="form-control" value={detailCustomer.dateOfDeliveryToCustomer ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, dateOfDeliveryToCustomer: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">AIMA CARE Loyalty Card</label><Input className="form-control" value={detailCustomer.aimaCareLoyaltyCardNo ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, aimaCareLoyaltyCardNo: e.target.value })} /></div>
+                </div>
+                {detailCustomer.paymentOption === 'cash' && detailCustomer.cashData && (
+                  <>
+                    <h6 className="border-bottom pb-2 mb-3">Cash - Requirement for registration</h6>
+                    <div className="row g-2 mb-4">
+                      <FileUploadField label="Copy of NIC" value={detailCustomer.cashData.copyOfNic ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, copyOfNic: v } })} subfolder="cash" fieldName="copyOfNic" />
+                      <FileUploadField label="Photograph 1" value={detailCustomer.cashData.photographOne ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, photographOne: v } })} subfolder="cash" fieldName="photographOne" />
+                      <FileUploadField label="Photograph 2" value={detailCustomer.cashData.photographTwo ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, photographTwo: v } })} subfolder="cash" fieldName="photographTwo" />
+                      <FileUploadField label="Payment Receipt" value={detailCustomer.cashData.paymentReceipt ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, paymentReceipt: v } })} subfolder="cash" fieldName="paymentReceipt" />
+                      <FileUploadField label="MTA 2" value={detailCustomer.cashData.mta2 ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, mta2: v } })} subfolder="cash" fieldName="mta2" />
+                      <FileUploadField label="Slip" value={detailCustomer.cashData.slip ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, slip: v } })} subfolder="cash" fieldName="slip" />
+                      <div className="col-md-6"><label className="form-label">Cheque Number</label><Input type="number" className="form-control" value={String(detailCustomer.cashData.chequeNumber ?? '')} onChange={(e) => setEditCustomer({ ...detailCustomer, cashData: { ...detailCustomer.cashData!, chequeNumber: e.target.value } })} /></div>
+                    </div>
+                  </>
+                )}
+                {detailCustomer.paymentOption === 'lease' && detailCustomer.leaseData && (
+                  <>
+                    <h6 className="border-bottom pb-2 mb-3">Lease - Requirement for registration</h6>
+                    <div className="row g-2 mb-4">
+                      <FileUploadField label="Company Name" value={detailCustomer.leaseData.companyName ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, companyName: v } })} subfolder="lease" fieldName="companyName" />
+                      <div className="col-md-6"><label className="form-label">Purchase Order Number</label><Input type="number" className="form-control" value={String(detailCustomer.leaseData.purchaseOrderNumber ?? '')} onChange={(e) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, purchaseOrderNumber: e.target.value } })} /></div>
+                      <FileUploadField label="Copy of NIC" value={detailCustomer.leaseData.copyOfNic ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, copyOfNic: v } })} subfolder="lease" fieldName="copyOfNic" />
+                      <FileUploadField label="Photograph 1" value={detailCustomer.leaseData.photographOne ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, photographOne: v } })} subfolder="lease" fieldName="photographOne" />
+                      <FileUploadField label="Photograph 2" value={detailCustomer.leaseData.photographTwo ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, photographTwo: v } })} subfolder="lease" fieldName="photographTwo" />
+                      <FileUploadField label="Payment Receipt" value={detailCustomer.leaseData.paymentReceipt ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, paymentReceipt: v } })} subfolder="lease" fieldName="paymentReceipt" />
+                      <FileUploadField label="MTA 2" value={detailCustomer.leaseData.mta2 ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, mta2: v } })} subfolder="lease" fieldName="mta2" />
+                      <FileUploadField label="MTA 3" value={detailCustomer.leaseData.mta3 ?? ''} onChange={(v) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, mta3: v } })} subfolder="lease" fieldName="mta3" />
+                      <div className="col-md-6"><label className="form-label">Cheque Number</label><Input type="number" className="form-control" value={String(detailCustomer.leaseData.chequeNumber ?? '')} onChange={(e) => setEditCustomer({ ...detailCustomer, leaseData: { ...detailCustomer.leaseData!, chequeNumber: e.target.value } })} /></div>
+                    </div>
+                  </>
+                )}
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <Button type="submit" disabled={actionLoading} style={{ backgroundColor: '#AA336A' }}>Save</Button>
+                </div>
+              </form>
+            ) : (
+              <>
             <h6 className="border-bottom pb-2 mb-3">Customer Details</h6>
             <div className="row g-2 mb-4">
               <div className="col-md-6"><strong>Name in Full:</strong> {detailCustomer.nameInFull ?? detailCustomer.name ?? '-'}</div>
@@ -201,7 +559,7 @@ export default function Customers() {
               <div className="col-md-6"><strong>Province:</strong> {detailCustomer.province ?? '-'}</div>
               <div className="col-md-6"><strong>District:</strong> {detailCustomer.district ?? '-'}</div>
               <div className="col-md-6"><strong>Occupation:</strong> {detailCustomer.occupation ?? '-'}</div>
-              <div className="col-md-6"><strong>Date of Birth:</strong> {detailCustomer.dateOfBirth ?? '-'}</div>
+              <div className="col-md-6"><strong>Date of Birth:</strong> {formatDateDDMMYYYY(detailCustomer.dateOfBirth)}</div>
               <div className="col-md-6"><strong>Religion:</strong> {detailCustomer.religion ?? '-'}</div>
               <div className="col-md-6"><strong>WhatsApp Number:</strong> {detailCustomer.whatsAppNumber ?? '-'}</div>
               <div className="col-md-6"><strong>NIC/Business Reg No:</strong> {detailCustomer.nicOrBusinessRegNo ?? '-'}</div>
@@ -212,15 +570,15 @@ export default function Customers() {
               <div className="col-md-6"><strong>Chassis Number:</strong> {detailCustomer.chassisNumber ?? '-'}</div>
               <div className="col-md-6"><strong>Motor Number:</strong> {detailCustomer.motorNumber ?? '-'}</div>
               <div className="col-md-6"><strong>Colour:</strong> {detailCustomer.colourOfVehicle ?? '-'}</div>
-              <div className="col-md-6"><strong>Date of Purchase:</strong> {detailCustomer.dateOfPurchase ?? '-'}</div>
+              <div className="col-md-6"><strong>Date of Purchase:</strong> {formatDateDDMMYYYY(detailCustomer.dateOfPurchase)}</div>
               <div className="col-md-6"><strong>Selling Price:</strong> {detailCustomer.sellingPrice != null ? formatCurrency(detailCustomer.sellingPrice) : '-'}</div>
               <div className="col-md-6"><strong>Registration Fee:</strong> {detailCustomer.registrationFee != null ? formatCurrency(detailCustomer.registrationFee) : '-'}</div>
               <div className="col-md-6"><strong>Advance Payment:</strong> {detailCustomer.advancePaymentAmount != null ? formatCurrency(detailCustomer.advancePaymentAmount) : '-'}</div>
-              <div className="col-md-6"><strong>Advance Date:</strong> {detailCustomer.advancePaymentDate ?? '-'}</div>
+              <div className="col-md-6"><strong>Advance Date:</strong> {formatDateDDMMYYYY(detailCustomer.advancePaymentDate)}</div>
               <div className="col-md-6"><strong>Balance Amount:</strong> {detailCustomer.balancePaymentAmount != null ? formatCurrency(detailCustomer.balancePaymentAmount) : '-'}</div>
-              <div className="col-md-6"><strong>Balance Date:</strong> {detailCustomer.balancePaymentDate ?? '-'}</div>
+              <div className="col-md-6"><strong>Balance Date:</strong> {formatDateDDMMYYYY(detailCustomer.balancePaymentDate)}</div>
               <div className="col-md-6"><strong>Payment Type:</strong> {detailCustomer.paymentType ?? '-'}</div>
-              <div className="col-md-6"><strong>Date of Delivery:</strong> {detailCustomer.dateOfDeliveryToCustomer ?? '-'}</div>
+              <div className="col-md-6"><strong>Date of Delivery:</strong> {formatDateDDMMYYYY(detailCustomer.dateOfDeliveryToCustomer)}</div>
               <div className="col-md-6"><strong>AIMA CARE Loyalty Card:</strong> {detailCustomer.aimaCareLoyaltyCardNo ?? '-'}</div>
             </div>
             {detailCustomer.paymentOption === 'cash' && detailCustomer.cashData && (
@@ -279,6 +637,8 @@ export default function Customers() {
                 </div>
               </>
             )}
+              </>
+            )}
           </div>
         </div>
         )
@@ -330,11 +690,9 @@ export default function Customers() {
                             <Button variant="ghost" size="sm" className="p-1" onClick={() => { setViewCustomer(dtoToDisplay(customer)); setEditCustomer(null); }} title="View details">
                               <Eye size={20} className="text-primary" />
                             </Button>
-                            {statusFilter === 'pending' && (
-                              <Button variant="ghost" size="sm" className="p-1" title="Edit" type="button" onClick={() => { setEditCustomer(dtoToDisplay(customer)); setViewCustomer(null); setActionError(''); }}>
-                                <Pencil size={18} className="text-secondary" />
-                              </Button>
-                            )}
+                            <Button variant="ghost" size="sm" className="p-1" title="Edit" type="button" onClick={() => { setEditCustomer(dtoToDisplay(customer)); setViewCustomer(null); setActionError(''); }}>
+                              <Pencil size={18} className="text-secondary" />
+                            </Button>
                           </div>
                         </td>
                       </tr>

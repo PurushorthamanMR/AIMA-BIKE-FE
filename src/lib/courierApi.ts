@@ -37,6 +37,25 @@ export async function saveCourier(data: {
   return { success: false, error: res.errorDescription || 'Failed to save courier' }
 }
 
+/** Get courier by ID */
+export async function getCourierById(id: number): Promise<CourierDto | null> {
+  const res = await apiGet<CourierDto>(`/courier/getById?id=${id}`)
+  if (res.status && res.responseDto) return res.responseDto
+  return null
+}
+
+/** Mark courier as received - POST /courier/received */
+export async function markCourierReceived(data: {
+  courierId: number
+  receivedDate?: string
+  receivername?: string
+  nic?: string
+}): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CourierDto>('/courier/received', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to mark courier as received' }
+}
+
 /** Get all couriers - uses getByName with empty to fetch all */
 export async function getCouriers(): Promise<CourierDto[]> {
   const res = await apiGet<CourierDto[]>(`/courier/getByName?name=`)

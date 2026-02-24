@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
@@ -12,6 +13,7 @@ import {
   Bike,
   CreditCard,
   Layers,
+  Package,
 } from 'lucide-react'
 
 const menuItems = [
@@ -19,6 +21,7 @@ const menuItems = [
   { path: '/pos', icon: ShoppingCart, label: 'POS', roles: ['admin', 'manager', 'staff'] },
   { path: '/category', icon: Layers, label: 'Category', roles: ['admin', 'manager', 'staff'] },
   { path: '/bike-models', icon: Bike, label: 'Bike Models', roles: ['admin', 'manager', 'staff'] },
+  { path: '/stock', icon: Package, label: 'Stock', roles: ['admin', 'manager', 'staff'] },
   { path: '/customers', icon: Users, label: 'Customers', roles: ['admin', 'manager'] },
   { path: '/payment', icon: CreditCard, label: 'Payment', roles: ['admin', 'manager', 'staff'] },
   { path: '/courier', icon: Truck, label: 'Courier', roles: ['admin', 'manager', 'staff'] },
@@ -34,6 +37,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed }: SidebarProps) {
   const { user } = useAuth()
+  const [logoError, setLogoError] = useState(false)
 
   const userRole = user?.role?.toLowerCase()
   const filteredItems = menuItems.filter((item) =>
@@ -57,13 +61,25 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         overflowY: 'auto',
       }}
     >
-      <div className={`border-bottom border-secondary d-flex align-items-center ${collapsed ? 'flex-column px-2 py-3' : 'p-4'}`}>
-        {collapsed ? (
-          <span className="fw-bold text-white" style={{ fontSize: '1rem' }} title="AIMA Showroom">AIMA</span>
+      <div className={`border-bottom border-secondary d-flex align-items-center justify-content-center ${collapsed ? 'flex-column px-2 py-3' : 'p-4'}`}>
+        {logoError ? (
+          collapsed ? (
+            <span className="fw-bold text-white" style={{ fontSize: '1rem' }} title="AIMA Showroom">AIMA</span>
+          ) : (
+            <div>
+              <h5 className="mb-0 fw-bold">AIMA Showroom</h5>
+              <small className="text-secondary">Bike Sales POS</small>
+            </div>
+          )
         ) : (
-          <div>
-            <h5 className="mb-0 fw-bold">AIMA Showroom</h5>
-            <small className="text-secondary">Bike Sales POS</small>
+          <div className="d-flex flex-column align-items-center">
+            <img
+              src="/images_logos/Logo.png"
+              alt="AIMA Logo"
+              style={collapsed ? { maxHeight: '36px', objectFit: 'contain' } : { maxHeight: '56px', objectFit: 'contain' }}
+              onError={() => setLogoError(true)}
+            />
+            {!collapsed && <small className="text-secondary mt-2">Bike Sales POS</small>}
           </div>
         )}
       </div>

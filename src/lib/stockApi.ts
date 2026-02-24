@@ -9,10 +9,7 @@ export interface StockDto {
   motorNumber?: string
   color?: string
   quantity?: number
-  name?: string
-  sellingAmount?: number
-  imageUrl?: string
-  isActive?: boolean
+  modelDto?: { id: number; name: string; categoryDto?: { id: number; name: string } }
 }
 
 export interface StockPageResponse {
@@ -34,28 +31,35 @@ export async function getStocksByModel(modelId: number): Promise<StockDto[]> {
   return []
 }
 
+export async function getStockById(id: number): Promise<StockDto | null> {
+  const list = await getStocksPage(1, 500)
+  return list.find((s) => s.id === id) ?? null
+}
+
 export async function getStocksPage(
   pageNumber = 1,
   pageSize = 100,
-  status = true,
-  modelId?: number
+  searchParams?: { noteId?: number; modelId?: number; color?: string; itemCode?: string }
 ): Promise<StockDto[]> {
-  let url = `/stock/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}&status=${status}`
-  if (modelId != null) url += `&modelId=${modelId}`
-  const res = await apiGet<StockDto[] | StockPageResponse>(url)
+  let url = `/stock/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
+  if (searchParams?.noteId != null) url += `&noteId=${searchParams.noteId}`
+  if (searchParams?.modelId != null) url += `&modelId=${searchParams.modelId}`
+  if (searchParams?.color) url += `&color=${encodeURIComponent(searchParams.color)}`
+  if (searchParams?.itemCode) url += `&itemCode=${encodeURIComponent(searchParams.itemCode)}`
+  const res = await apiGet<StockPageResponse>(url)
   if (res.status && res.responseDto) {
-    const data = res.responseDto as StockPageResponse
-    return data?.content ?? []
+    return res.responseDto.content ?? []
   }
   return []
 }
 
 export async function saveStock(data: {
+  noteId: number
   modelId: number
-  name: string
-  color: string
   itemCode?: string
-  sellingAmount?: number
+  chassisNumber?: string
+  motorNumber?: string
+  color?: string
   quantity?: number
 }): Promise<{ success: boolean; error?: string }> {
   const res = await apiPost<StockDto>('/stock/save', data)
@@ -65,11 +69,12 @@ export async function saveStock(data: {
 
 export async function updateStock(data: {
   id: number
+  noteId?: number
   modelId?: number
-  name?: string
-  color?: string
   itemCode?: string
-  sellingAmount?: number
+  chassisNumber?: string
+  motorNumber?: string
+  color?: string
   quantity?: number
 }): Promise<{ success: boolean; error?: string }> {
   const res = await apiPost<StockDto>('/stock/update', data)

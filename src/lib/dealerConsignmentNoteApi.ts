@@ -36,6 +36,32 @@ export interface DealerConsignmentNotePageResponse {
   pageSize: number
 }
 
+export async function updateDealerConsignmentNote(data: {
+  id: number
+  dealerCode: string
+  dealerName: string
+  address?: string
+  consignmentNoteNo: string
+  date?: string
+  deliveryMode?: string
+  vehicleNo?: string
+  references?: string
+  contactPerson?: string
+  items: Array<{
+    modelId: number
+    id?: number
+    itemCode?: string
+    chassisNumber?: string
+    motorNumber?: string
+    color?: string
+    quantity?: number
+  }>
+}): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<DealerConsignmentNoteDto>('/dealerConsignmentNote/update', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update dealer consignment note' }
+}
+
 export async function saveDealerConsignmentNote(data: {
   dealerCode: string
   dealerName: string
@@ -59,6 +85,18 @@ export async function saveDealerConsignmentNote(data: {
   const res = await apiPost<DealerConsignmentNoteDto>('/dealerConsignmentNote/save', data)
   if (res.status && res.responseDto) return { success: true }
   return { success: false, error: res.errorDescription || 'Failed to save dealer consignment note' }
+}
+
+export async function getDealerConsignmentNoteById(id: number): Promise<DealerConsignmentNoteDto | null> {
+  const res = await getDealerConsignmentNotesPage(1, 500, true)
+  if (!res?.content) return null
+  return res.content.find((n) => n.id === id) ?? null
+}
+
+export async function getDealerConsignmentNoteByConsignmentNo(consignmentNoteNo: string): Promise<DealerConsignmentNoteDto | null> {
+  const res = await apiGet<DealerConsignmentNoteDto>(`/dealerConsignmentNote/getByConsignmentNoteNo?consignmentNoteNo=${encodeURIComponent(consignmentNoteNo)}`)
+  if (res.status && res.responseDto) return res.responseDto
+  return null
 }
 
 export async function getDealerConsignmentNotesPage(
