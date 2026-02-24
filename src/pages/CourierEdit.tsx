@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getCourierById, markCourierReceived } from '@/lib/courierApi'
-import { ArrowLeft } from 'lucide-react'
+import { getCourierById, updateCourier } from '@/lib/courierApi'
+import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
+import { getCustomersPage, type CustomerDto } from '@/lib/customerApi'
+import { ArrowLeft, Pencil } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function CourierEdit() {
@@ -12,9 +14,16 @@ export default function CourierEdit() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [receivedDate, setReceivedDate] = useState('')
-  const [receivername, setReceivername] = useState('')
-  const [nic, setNic] = useState('')
+  const [categories, setCategories] = useState<CategoryDto[]>([])
+  const [customers, setCustomers] = useState<CustomerDto[]>([])
+  const [form, setForm] = useState({
+    name: '',
+    address: '',
+    categoryId: 0,
+    customerId: 0,
+    contactNumber: '',
+    sentDate: '',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -23,12 +32,24 @@ export default function CourierEdit() {
       setLoading(false)
       return
     }
-    getCourierById(courierId).then((courier) => {
-      if (!cancelled && courier) {
-        setReceivedDate(courier.receivedDate ?? new Date().toISOString().split('T')[0])
-        setReceivername(courier.receivername ?? '')
-        setNic(courier.nic ?? '')
+    Promise.all([
+      getCourierById(courierId),
+      getCategoriesPage(1, 100, true),
+      getCustomersPage(1, 500, true),
+    ]).then(([courier, cats, custRes]) => {
+      if (cancelled) return
+      if (courier) {
+        setForm({
+          name: courier.name ?? '',
+          address: courier.address ?? '',
+          categoryId: courier.categoryId ?? 0,
+          customerId: courier.customerId ?? 0,
+          contactNumber: courier.contactNumber != null ? String(courier.contactNumber) : '',
+          sentDate: courier.sentDate ?? new Date().toISOString().split('T')[0],
+        })
       }
+      setCategories(cats ?? [])
+      setCustomers(custRes?.content ?? [])
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -40,18 +61,22 @@ export default function CourierEdit() {
     if (!courierId) return
     setError('')
     setSaving(true)
-    const result = await markCourierReceived({
-      courierId,
-      receivedDate: receivedDate || undefined,
-      receivername: receivername.trim() || undefined,
-      nic: nic.trim() || undefined,
+    const parseNum = (s: string) => { const n = parseInt(String(s || ''), 10); return !isNaN(n) ? n : undefined }
+    const result = await updateCourier({
+      id: courierId,
+      name: form.name.trim() || undefined,
+      address: form.address.trim() || undefined,
+      categoryId: form.categoryId || undefined,
+      customerId: form.customerId || undefined,
+      contactNumber: parseNum(form.contactNumber),
+      sentDate: form.sentDate || undefined,
     })
     setSaving(false)
     if (result.success) {
-      await Swal.fire({ icon: 'success', title: 'Success', text: 'Courier marked as received.' })
+      await Swal.fire({ icon: 'success', title: 'Success', text: 'Courier updated successfully.' })
       navigate(`/courier/${id}`)
     } else {
-      setError(result.error ?? 'Failed to save')
+      setError(result.error ?? 'Failed to update')
     }
   }
 
@@ -60,7 +85,12 @@ export default function CourierEdit() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Mark Courier Received</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Pencil size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Edit Courier</h2>
+        </div>
         <Button variant="outline" onClick={() => navigate(`/courier/${id}`)}>
           <ArrowLeft size={18} className="me-1" />
           Back
@@ -68,26 +98,58 @@ export default function CourierEdit() {
       </div>
       <div className="card">
         <div className="card-body">
-          <p className="text-muted mb-4">Update received details for courier #{id}. This uses the /courier/received API.</p>
+          <p className="text-muted mb-4">Update courier details. Uses POST /courier/update API.</p>
           <form onSubmit={handleSubmit}>
             {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
             <div className="row g-2 mb-3">
               <div className="col-md-6">
-                <label className="form-label">Received Date</label>
-                <Input type="date" className="form-control" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+                <label className="form-label">Name <span className="text-danger">*</span></label>
+                <Input className="form-control" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Courier/item name" required />
               </div>
               <div className="col-md-6">
-                <label className="form-label">Receiver Name</label>
-                <Input className="form-control" value={receivername} onChange={(e) => setReceivername(e.target.value)} placeholder="Receiver name" />
+                <label className="form-label">Customer <span className="text-danger">*</span></label>
+                <select
+                  className="form-select"
+                  value={form.customerId}
+                  onChange={(e) => setForm({ ...form, customerId: parseInt(e.target.value, 10) || 0 })}
+                  required
+                >
+                  <option value={0}>Select customer</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}{c.contactNumber ? ` - ${c.contactNumber}` : ''}{c.chassisNumber ? ` - ${c.chassisNumber}` : ''}</option>
+                  ))}
+                </select>
               </div>
               <div className="col-md-6">
-                <label className="form-label">Receiver NIC</label>
-                <Input className="form-control" value={nic} onChange={(e) => setNic(e.target.value)} placeholder="NIC number" />
+                <label className="form-label">Category <span className="text-danger">*</span></label>
+                <select
+                  className="form-select"
+                  value={form.categoryId}
+                  onChange={(e) => setForm({ ...form, categoryId: parseInt(e.target.value, 10) || 0 })}
+                  required
+                >
+                  <option value={0}>Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Contact Number</label>
+                <Input className="form-control" value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} placeholder="Contact number" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Sent Date</label>
+                <Input type="date" className="form-control" value={form.sentDate} onChange={(e) => setForm({ ...form, sentDate: e.target.value })} />
+              </div>
+              <div className="col-12">
+                <label className="form-label">Address <span className="text-danger">*</span></label>
+                <Input className="form-control" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Delivery address" required />
               </div>
             </div>
             <div className="d-flex gap-2 mt-4">
-              <Button type="submit" disabled={saving} style={{ backgroundColor: '#AA336A' }}>
-                {saving ? 'Saving...' : 'Save'}
+              <Button type="submit" disabled={saving} style={{ backgroundColor: 'var(--aima-primary)' }}>
+                {saving ? 'Saving...' : 'Update Courier'}
               </Button>
               <Button type="button" variant="outline" onClick={() => navigate(`/courier/${id}`)}>
                 Cancel

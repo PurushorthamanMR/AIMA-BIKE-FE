@@ -12,6 +12,7 @@ import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
 import { getStocksByModel, type StockDto } from '@/lib/stockApi'
 import Swal from 'sweetalert2'
 import { FileUploadField } from '@/components/FileUploadField'
+import { ModelImage } from '@/components/ModelImage'
 import { getDateOfBirthFromNIC } from '@/lib/nicUtils'
 import { saveCourier } from '@/lib/courierApi'
 import { getCustomersPage, type CustomerDto } from '@/lib/customerApi'
@@ -422,15 +423,16 @@ export default function POS() {
           ) : (
             categories.map((cat) => {
               const name = (cat.name || '').toLowerCase()
-              const icon = name === 'parts' ? <Package size={64} className="mb-3 text-success" /> : name.includes('service') ? <Wrench size={64} className="mb-3 text-warning" /> : <Bike size={64} className="mb-3 text-primary" />
+              const icon = name === 'parts' ? <Package size={64} className="mb-3" style={{ color: 'var(--aima-success)' }} /> : name.includes('service') ? <Wrench size={64} className="mb-3" style={{ color: 'var(--aima-accent)' }} /> : <Bike size={64} className="mb-3" style={{ color: 'var(--aima-info)' }} />
               const desc = name === 'parts' ? 'Spare Parts & Accessories' : name.includes('service') ? 'Repairs & Maintenance' : 'AIMA Electric Scooters'
+              const cardClass = name === 'parts' ? 'pos-category-card-parts' : name.includes('service') ? 'pos-category-card-service' : 'pos-category-card-bike'
               return (
                 <div key={cat.id} className="col-md-4">
-                  <div className="card pos-category-card h-100 cursor-pointer" onClick={() => handleCategoryClick(cat)}>
+                  <div className={`card pos-category-card ${cardClass} h-100 cursor-pointer`} onClick={() => handleCategoryClick(cat)}>
                     <div className="card-body text-center py-5">
                       {icon}
-                      <h4>{cat.name}</h4>
-                      <p className="text-muted mb-0">{desc}</p>
+                      <h4 className="fw-bold" style={{ color: 'var(--aima-secondary)' }}>{cat.name}</h4>
+                      <p className="mb-0" style={{ color: 'var(--aima-muted)' }}>{desc}</p>
                     </div>
                   </div>
                 </div>
@@ -466,13 +468,12 @@ export default function POS() {
                     }}
                   >
                     <div style={{ height: '140px', overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
-                      {model.imageUrl ? (
-                        <img src={model.imageUrl} alt={model.name} className="card-img-top w-100 h-100" style={{ objectFit: 'cover' }} />
-                      ) : (
-                        <div className="d-flex align-items-center justify-content-center h-100">
-                          <Bike size={48} className="text-muted" />
-                        </div>
-                      )}
+                      <ModelImage
+                        imageUrl={model.imageUrl}
+                        alt={model.name}
+                        className="card-img-top w-100 h-100"
+                        style={{ objectFit: 'cover' }}
+                      />
                     </div>
                     <div className="card-body py-2 px-2 text-center">
                       <h6 className="mb-0 small fw-semibold">{model.name}</h6>
@@ -505,6 +506,7 @@ export default function POS() {
                 const qty = stock.quantity ?? 0
                 const colorName = stock.color || stock.name || '-'
                 const colorHex = colorName.toLowerCase().includes('black') ? '#333' : colorName.toLowerCase().includes('red') ? '#c00' : colorName.toLowerCase().includes('blue') ? '#06c' : colorName.toLowerCase().includes('white') ? '#eee' : '#999'
+                const isLightBg = ['#eee', '#fff'].includes(colorHex) || colorHex.includes('white')
                 return (
                   <div key={stock.id} className="col-md-3 col-lg-2">
                     <div
@@ -513,7 +515,12 @@ export default function POS() {
                       style={{ borderColor: selectedStock?.id === stock.id ? '#AA336A' : undefined, borderWidth: selectedStock?.id === stock.id ? 3 : 1 }}
                     >
                       <div className="card-body text-center py-3">
-                        <div className="rounded-circle mx-auto mb-2" style={{ width: 40, height: 40, backgroundColor: colorHex }} />
+                        <div
+                          className="rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center fw-bold small"
+                          style={{ width: 40, height: 40, backgroundColor: colorHex, color: isLightBg ? '#333' : '#fff' }}
+                        >
+                          {qty}
+                        </div>
                         <h6 className="mb-0">{colorName}</h6>
                       </div>
                     </div>
@@ -732,23 +739,11 @@ export default function POS() {
           </div>
           <div className="row g-4">
             <div className="col-md-4">
-              <div
-                className="card pos-category-card h-100 cursor-pointer"
-                onClick={() => setStep('service')}
-                style={{ transition: 'transform 0.2s, box-shadow 0.2s' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                  e.currentTarget.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.1)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = ''
-                  e.currentTarget.style.boxShadow = ''
-                }}
-              >
+              <div className="card pos-category-card pos-category-card-courier h-100 cursor-pointer" onClick={() => setStep('service')}>
                 <div className="card-body text-center py-5">
-                  <Truck size={64} className="mb-3 text-info" />
-                  <h4>Courier</h4>
-                  <p className="text-muted mb-0">Add courier details for service items</p>
+                  <Truck size={64} className="mb-3" style={{ color: 'var(--aima-primary)' }} />
+                  <h4 className="fw-bold" style={{ color: 'var(--aima-secondary)' }}>Courier</h4>
+                  <p className="mb-0" style={{ color: 'var(--aima-muted)' }}>Add courier details for service items</p>
                 </div>
               </div>
             </div>
@@ -759,15 +754,9 @@ export default function POS() {
       {/* Service - Courier form */}
       {step === 'service' && (
         <div className="d-flex flex-column" style={{ minHeight: '400px' }}>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h4 className="mb-1">Service - Courier Form</h4>
-              <p className="text-muted mb-0 small">Add courier details for service items. Saved couriers appear in the Courier page.</p>
-            </div>
-            <Button variant="outline" onClick={handleBackFromCourierForm}>
-              <ArrowLeft size={18} className="me-1" />
-              Back
-            </Button>
+          <div className="mb-4">
+            <h4 className="mb-1">Service - Courier Form</h4>
+            <p className="text-muted mb-0 small">Add courier details for service items. Saved couriers appear in the Courier page.</p>
           </div>
           {courierSaveSuccess ? (
             <div className="card">
@@ -802,7 +791,7 @@ export default function POS() {
                       >
                         <option value={0}>Select customer</option>
                         {customers.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name} {c.contactNumber ? `- ${c.contactNumber}` : ''}</option>
+                          <option key={c.id} value={c.id}>{c.name}{c.contactNumber ? ` - ${c.contactNumber}` : ''}{c.chassisNumber ? ` - ${c.chassisNumber}` : ''}</option>
                         ))}
                       </select>
                     </div>

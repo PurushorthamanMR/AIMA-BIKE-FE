@@ -9,6 +9,7 @@ export interface TransferDto {
   contactNumber?: number
   address: string
   deliveryDetails: string
+  nic?: string
   isActive?: boolean
   stockDto?: {
     id: number
@@ -29,6 +30,7 @@ export async function saveTransfer(data: {
   contactNumber?: number
   address: string
   deliveryDetails: string
+  nic?: string
 }): Promise<{ success: boolean; error?: string }> {
   const res = await apiPost<TransferDto>('/transfer/save', data)
   if (res.status && res.responseDto) return { success: true }

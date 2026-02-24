@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input'
 import { saveDealerConsignmentNote, updateDealerConsignmentNote, getDealerConsignmentNotesPage, getDealerConsignmentNoteById, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
 import { getModelsPage, type ModelDto } from '@/lib/modelApi'
 import { Link } from 'react-router-dom'
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, FileText } from 'lucide-react'
+import ViewIcon from '@/components/icons/ViewIcon'
+import EditIcon from '@/components/icons/EditIcon'
 import Swal from 'sweetalert2'
 
 interface FormItem {
@@ -182,9 +184,14 @@ export default function DealerInvoice() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Dealer Invoice</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <FileText size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Dealer Invoice</h2>
+        </div>
         {!showForm && (
-          <Button onClick={() => { setShowForm(true); setSaveError(''); setEditingId(null); setForm({ ...emptyForm, items: [{ modelId: 0, quantity: 1 }] }) }} style={{ backgroundColor: '#AA336A' }}>
+          <Button onClick={() => { setShowForm(true); setSaveError(''); setEditingId(null); setForm({ ...emptyForm, items: [{ modelId: 0, quantity: 1 }] }) }} style={{ backgroundColor: 'var(--aima-primary)' }}>
             <Plus size={18} className="me-1" />
             Add Dealer Invoice
           </Button>
@@ -327,19 +334,19 @@ export default function DealerInvoice() {
                   <tbody>
                     {filteredNotes.map((n) => (
                       <tr key={n.id}>
-                        <td className="fw-medium">{n.consignmentNoteNo ?? '-'}</td>
-                        <td>{n.dealerCode ?? '-'}</td>
-                        <td>{n.dealerName ?? '-'}</td>
-                        <td>{n.date ?? '-'}</td>
-                        <td>{n.items?.length ?? 0} item(s)</td>
-                        <td>
-                          <div className="d-flex gap-1">
-                            <Button variant="ghost" size="sm" className="p-1" title="Edit" onClick={() => handleEditClick(n)}>
-                              <Pencil size={20} className="text-warning" />
+                        <td className="fw-medium align-middle">{n.consignmentNoteNo ?? '-'}</td>
+                        <td className="align-middle">{n.dealerCode ?? '-'}</td>
+                        <td className="align-middle">{n.dealerName ?? '-'}</td>
+                        <td className="align-middle">{n.date ?? '-'}</td>
+                        <td className="align-middle">{n.items?.length ?? 0} item(s)</td>
+                        <td className="align-middle">
+                          <div className="d-flex align-items-center gap-1">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" title="Edit" onClick={() => handleEditClick(n)}>
+                              <EditIcon size={20} className="text-dark" />
                             </Button>
-                            <Link to={`/dealer-invoice/${n.id}`} className="text-decoration-none">
-                              <Button variant="ghost" size="sm" className="p-1" title="View">
-                                <Eye size={20} className="text-primary" />
+                            <Link to={`/dealer-invoice/${n.id}`} className="text-decoration-none d-inline-flex align-items-center">
+                              <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" title="View">
+                                <ViewIcon size={20} className="text-primary" />
                               </Button>
                             </Link>
                           </div>

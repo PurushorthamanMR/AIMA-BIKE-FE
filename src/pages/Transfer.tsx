@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input'
 import { saveTransfer, getTransfers, type TransferDto } from '@/lib/transferApi'
 import { getStocksPage, type StockDto } from '@/lib/stockApi'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye, Plus } from 'lucide-react'
+import { Plus, ArrowRightLeft } from 'lucide-react'
+import ViewIcon from '@/components/icons/ViewIcon'
 import Swal from 'sweetalert2'
 
 const emptyForm = {
@@ -14,6 +15,7 @@ const emptyForm = {
   contactNumber: '',
   address: '',
   deliveryDetails: '',
+  nic: '',
 }
 
 export default function Transfer() {
@@ -54,7 +56,8 @@ export default function Transfer() {
     const company = (t.companyName ?? '').toLowerCase()
     const address = (t.address ?? '').toLowerCase()
     const stock = (t.stockDto?.name ?? t.stockDto?.modelDto?.name ?? '').toLowerCase()
-    return company.includes(q) || address.includes(q) || stock.includes(q)
+    const nic = (t.nic ?? '').toLowerCase()
+    return company.includes(q) || address.includes(q) || stock.includes(q) || nic.includes(q)
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +84,7 @@ export default function Transfer() {
       contactNumber: parseNum(form.contactNumber),
       address: form.address.trim(),
       deliveryDetails: form.deliveryDetails.trim(),
+      nic: form.nic.trim() || undefined,
     })
     if (result.success) {
       setSaveSuccess(true)
@@ -101,7 +105,12 @@ export default function Transfer() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Transfer</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <ArrowRightLeft size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Transfer</h2>
+        </div>
         {!showForm && (
           <Button onClick={() => { setShowForm(true); setSaveError(''); setForm(emptyForm) }} style={{ backgroundColor: '#AA336A' }}>
             <Plus size={18} className="me-1" />
@@ -142,6 +151,10 @@ export default function Transfer() {
                 <label className="form-label">Contact Number</label>
                 <Input type="tel" value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} placeholder="Contact" className="form-control" />
               </div>
+              <div className="col-md-6">
+                <label className="form-label">NIC</label>
+                <Input value={form.nic} onChange={(e) => setForm({ ...form, nic: e.target.value })} placeholder="NIC number" className="form-control" />
+              </div>
               <div className="col-12">
                 <label className="form-label">Address <span className="text-danger">*</span></label>
                 <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Delivery address" required className="form-control" />
@@ -169,7 +182,7 @@ export default function Transfer() {
       <div className="card">
         <div className="card-body">
           <Input
-            placeholder="Search by company, address, stock..."
+            placeholder="Search by company, address, stock, NIC..."
             className="mb-3"
             style={{ maxWidth: '400px' }}
             value={searchQuery}
@@ -187,6 +200,7 @@ export default function Transfer() {
                       <th>Quantity</th>
                       <th>Company Name</th>
                       <th>Contact</th>
+                      <th>NIC</th>
                       <th>Address</th>
                       <th>Action</th>
                     </tr>
@@ -194,14 +208,15 @@ export default function Transfer() {
                   <tbody>
                     {filteredTransfers.map((t) => (
                       <tr key={t.id}>
-                        <td className="fw-medium">{t.stockDto?.name || t.stockDto?.modelDto?.name || `Stock #${t.stockId}`}</td>
-                        <td>{t.quantity ?? '-'}</td>
-                        <td>{t.companyName ?? '-'}</td>
-                        <td>{t.contactNumber != null ? String(t.contactNumber) : '-'}</td>
-                        <td>{t.address ?? '-'}</td>
-                        <td>
-                          <Button variant="ghost" size="sm" className="p-1" onClick={() => setViewTransfer(t)} title="View">
-                            <Eye size={20} className="text-primary" />
+                        <td className="fw-medium align-middle">{t.stockDto?.name || t.stockDto?.modelDto?.name || `Stock #${t.stockId}`}</td>
+                        <td className="align-middle">{t.quantity ?? '-'}</td>
+                        <td className="align-middle">{t.companyName ?? '-'}</td>
+                        <td className="align-middle">{t.contactNumber != null ? String(t.contactNumber) : '-'}</td>
+                        <td className="align-middle">{t.nic ?? '-'}</td>
+                        <td className="align-middle">{t.address ?? '-'}</td>
+                        <td className="align-middle">
+                          <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => setViewTransfer(t)} title="View">
+                            <ViewIcon size={20} className="text-primary" />
                           </Button>
                         </td>
                       </tr>
@@ -230,6 +245,7 @@ export default function Transfer() {
                   <div className="col-md-6"><strong>Quantity:</strong> {viewTransfer.quantity ?? '-'}</div>
                   <div className="col-md-6"><strong>Company Name:</strong> {viewTransfer.companyName ?? '-'}</div>
                   <div className="col-md-6"><strong>Contact:</strong> {viewTransfer.contactNumber ?? '-'}</div>
+                  <div className="col-md-6"><strong>NIC:</strong> {viewTransfer.nic ?? '-'}</div>
                   <div className="col-12"><strong>Address:</strong> {viewTransfer.address ?? '-'}</div>
                   <div className="col-12"><strong>Delivery Details:</strong> {viewTransfer.deliveryDetails ?? '-'}</div>
                 </div>

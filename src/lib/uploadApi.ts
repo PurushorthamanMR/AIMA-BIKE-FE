@@ -16,7 +16,7 @@ export function getFileDisplayUrl(value: string): string {
 
 export async function uploadFile(
   file: File,
-  subfolder: 'cash' | 'lease',
+  subfolder: 'cash' | 'lease' | 'bike-models',
   fieldName: string
 ): Promise<{ success: boolean; path?: string; error?: string }> {
   return saveToUpload(file, subfolder, fieldName)

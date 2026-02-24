@@ -44,6 +44,25 @@ export async function getCourierById(id: number): Promise<CourierDto | null> {
   return null
 }
 
+/** Update courier - POST /courier/update */
+export async function updateCourier(data: {
+  id: number
+  name?: string
+  address?: string
+  categoryId?: number
+  customerId?: number
+  contactNumber?: number
+  sentDate?: string
+  receivedDate?: string
+  receivername?: string
+  nic?: string
+  isActive?: boolean
+}): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CourierDto>('/courier/update', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update courier' }
+}
+
 /** Mark courier as received - POST /courier/received */
 export async function markCourierReceived(data: {
   courierId: number

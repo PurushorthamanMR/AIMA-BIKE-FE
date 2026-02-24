@@ -6,12 +6,13 @@ interface FileUploadFieldProps {
   label: string
   value: string
   onChange: (path: string) => void
-  subfolder?: 'cash' | 'lease'
+  subfolder?: 'cash' | 'lease' | 'bike-models'
   fieldName: string
   accept?: string
+  className?: string
 }
 
-export function FileUploadField({ label, value, onChange, subfolder = 'cash', fieldName, accept = 'image/*,.pdf' }: FileUploadFieldProps) {
+export function FileUploadField({ label, value, onChange, subfolder = 'cash', fieldName, accept = 'image/*,.pdf', className = 'col-md-6' }: FileUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -83,7 +84,7 @@ export function FileUploadField({ label, value, onChange, subfolder = 'cash', fi
   const displayUrl = syncUrl || asyncUrl || ''
 
   return (
-    <div className="col-md-6">
+    <div className={className}>
       <label className="form-label">{label}</label>
       <input
         ref={inputRef}

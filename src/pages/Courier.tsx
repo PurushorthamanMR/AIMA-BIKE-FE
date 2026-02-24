@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getCouriers, type CourierDto } from '@/lib/courierApi'
-import { Eye, Pencil } from 'lucide-react'
+import ViewIcon from '@/components/icons/ViewIcon'
+import EditIcon from '@/components/icons/EditIcon'
+import { Truck, Search } from 'lucide-react'
 
 export default function Courier() {
   const navigate = useNavigate()
@@ -40,17 +42,25 @@ export default function Courier() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Courier</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Truck size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Courier</h2>
+        </div>
       </div>
-      <div className="card">
+      <div className="card border-0 shadow-sm page-card">
         <div className="card-body">
-          <Input
-            placeholder="Search by name, customer, address, contact..."
-            className="mb-3"
-            style={{ maxWidth: '400px' }}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <div className="position-relative mb-3 d-inline-block" style={{ maxWidth: '400px' }}>
+            <Search size={18} className="position-absolute top-50 translate-middle-y" style={{ left: 12, color: 'var(--aima-muted)' }} />
+            <Input
+              placeholder="Search by name, customer, address, contact..."
+              className="form-control"
+              style={{ paddingLeft: 36 }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
           {loading ? (
             <p className="text-muted mb-0">Loading couriers...</p>
           ) : (
@@ -70,18 +80,18 @@ export default function Courier() {
                   <tbody>
                     {filteredCouriers.map((courier) => (
                       <tr key={courier.id}>
-                        <td className="fw-medium">{courier.name ?? '-'}</td>
-                        <td>{courier.customerDto?.name ?? '-'}</td>
-                        <td>{courier.contactNumber != null ? String(courier.contactNumber) : '-'}</td>
-                        <td>{courier.address ?? '-'}</td>
-                        <td>{courier.sentDate ?? '-'}</td>
-                        <td>
-                          <div className="d-flex gap-1">
-                            <Button variant="ghost" size="sm" className="p-1" onClick={() => navigate(`/courier/${courier.id}`)} title="View details">
-                              <Eye size={20} className="text-primary" />
+                        <td className="fw-medium align-middle">{courier.name ?? '-'}</td>
+                        <td className="align-middle">{courier.customerDto?.name ?? '-'}</td>
+                        <td className="align-middle">{courier.contactNumber != null ? String(courier.contactNumber) : '-'}</td>
+                        <td className="align-middle">{courier.address ?? '-'}</td>
+                        <td className="align-middle">{courier.sentDate ?? '-'}</td>
+                        <td className="align-middle">
+                          <div className="d-flex align-items-center gap-1">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => navigate(`/courier/${courier.id}`)} title="View details">
+                              <ViewIcon size={20} className="text-primary" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="p-1" onClick={() => navigate(`/courier/${courier.id}/edit`)} title="Edit (Mark Received)">
-                              <Pencil size={18} className="text-secondary" />
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => navigate(`/courier/${courier.id}/edit`)} title="Edit">
+                              <EditIcon size={18} className="text-dark" />
                             </Button>
                           </div>
                         </td>

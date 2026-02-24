@@ -3,7 +3,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getCustomersByStatus, approveCustomer, returnCustomer, updateCustomer, updateCash, updateLease, type CustomerDto } from '@/lib/customerApi'
 import { formatCurrency, formatDateDDMMYYYY } from '@/lib/utils'
-import { Eye, FileDown, Pencil, ArrowLeft } from 'lucide-react'
+import { FileDown, ArrowLeft, Users } from 'lucide-react'
+import ViewIcon from '@/components/icons/ViewIcon'
+import EditIcon from '@/components/icons/EditIcon'
 import { UploadDisplay } from '@/components/UploadDisplay'
 import { FileUploadField } from '@/components/FileUploadField'
 import { isUploadPath, getUploadUrl } from '@/lib/uploadApi'
@@ -453,7 +455,12 @@ export default function Customers() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Customers</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Users size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Customers</h2>
+        </div>
       </div>
 
       {/* Customer details inline - View (read-only) or Edit (form) */}
@@ -682,16 +689,16 @@ export default function Customers() {
                   <tbody>
                     {displayList.map((customer) => (
                       <tr key={customer.id}>
-                        <td className="fw-medium">{customer.name ?? '-'}</td>
-                        <td>{customer.contactNumber != null ? String(customer.contactNumber) : customer.whatsappNumber != null ? String(customer.whatsappNumber) : '-'}</td>
-                        <td>{customer.nic ?? '-'}</td>
-                        <td>
-                          <div className="d-flex gap-1">
-                            <Button variant="ghost" size="sm" className="p-1" onClick={() => { setViewCustomer(dtoToDisplay(customer)); setEditCustomer(null); }} title="View details">
-                              <Eye size={20} className="text-primary" />
+                        <td className="fw-medium align-middle">{customer.name ?? '-'}</td>
+                        <td className="align-middle">{customer.contactNumber != null ? String(customer.contactNumber) : customer.whatsappNumber != null ? String(customer.whatsappNumber) : '-'}</td>
+                        <td className="align-middle">{customer.nic ?? '-'}</td>
+                        <td className="align-middle">
+                          <div className="d-flex align-items-center gap-1">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => { setViewCustomer(dtoToDisplay(customer)); setEditCustomer(null); }} title="View details">
+                              <ViewIcon size={20} className="text-primary" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="p-1" title="Edit" type="button" onClick={() => { setEditCustomer(dtoToDisplay(customer)); setViewCustomer(null); setActionError(''); }}>
-                              <Pencil size={18} className="text-secondary" />
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" title="Edit" type="button" onClick={() => { setEditCustomer(dtoToDisplay(customer)); setViewCustomer(null); setActionError(''); }}>
+                              <EditIcon size={18} className="text-dark" />
                             </Button>
                           </div>
                         </td>

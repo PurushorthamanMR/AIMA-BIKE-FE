@@ -8,7 +8,8 @@ import {
   updateCategoryStatus,
   type CategoryDto,
 } from '@/lib/categoryApi'
-import { Pencil, Plus } from 'lucide-react'
+import { Plus, Layers } from 'lucide-react'
+import EditIcon from '@/components/icons/EditIcon'
 
 export default function Category() {
   const [list, setList] = useState<CategoryDto[]>([])
@@ -105,8 +106,13 @@ export default function Category() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Category</h2>
-        <Button onClick={openAdd} style={{ backgroundColor: '#AA336A' }}>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Layers size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Category</h2>
+        </div>
+        <Button onClick={openAdd} style={{ backgroundColor: 'var(--aima-primary)' }}>
           <Plus size={18} className="me-1" />
           Add Category
         </Button>
@@ -132,26 +138,28 @@ export default function Category() {
                 <tbody>
                   {list.map((c) => (
                     <tr key={c.id}>
-                      <td>{c.id}</td>
-                      <td className="fw-medium">{c.name}</td>
-                      <td>
+                      <td className="align-middle">{c.id}</td>
+                      <td className="fw-medium align-middle">{c.name}</td>
+                      <td className="align-middle">
                         <span className={`badge ${c.isActive !== false ? 'bg-success' : 'bg-secondary'}`}>
                           {c.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="text-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="me-1"
-                          onClick={() => handleToggleStatus(c)}
-                          title={c.isActive !== false ? 'Set inactive' : 'Set active'}
-                        >
-                          {c.isActive !== false ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button variant="ghost" size="sm" className="p-1" onClick={() => openEdit(c)} title="Edit">
-                          <Pencil size={18} className="text-primary" />
-                        </Button>
+                      <td className="text-end align-middle">
+                        <div className="d-flex align-items-center justify-content-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="me-1"
+                            onClick={() => handleToggleStatus(c)}
+                            title={c.isActive !== false ? 'Set inactive' : 'Set active'}
+                          >
+                            {c.isActive !== false ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center justify-content-center" style={{ minHeight: 36 }} onClick={() => openEdit(c)} title="Edit">
+                            <EditIcon size={18} className="text-dark" style={{ marginTop: 3 }} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -202,7 +210,7 @@ export default function Category() {
                     <Button type="button" variant="outline" onClick={closeModal}>
                       Cancel
                     </Button>
-                    <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+                    <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
                       {editing ? 'Update' : 'Add'} Category
                     </Button>
                   </div>
