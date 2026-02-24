@@ -105,8 +105,83 @@ export interface CustomerDto {
   loyalityCardNo?: number
   modelDto?: { id: number; name: string }
   paymentDto?: { id: number; name: string; isActive?: boolean }
-  cashData?: { copyOfNic?: string; photographOne?: string; photographTwo?: string; paymentReceipt?: string; mta2?: string; slip?: string; chequeNumber?: number }
-  leaseData?: { companyName?: string; purchaseOrderNumber?: number; copyOfNic?: string; photographOne?: string; photographTwo?: string; paymentReceipt?: string; mta2?: string; mta3?: string; chequeNumber?: number }
+  cashData?: { id?: number; customerId?: number; copyOfNic?: string; photographOne?: string; photographTwo?: string; paymentReceipt?: string; mta2?: string; slip?: string; chequeNumber?: number }
+  leaseData?: { id?: number; customerId?: number; companyName?: string; purchaseOrderNumber?: number; copyOfNic?: string; photographOne?: string; photographTwo?: string; paymentReceipt?: string; mta2?: string; mta3?: string; chequeNumber?: number }
+}
+
+export interface UpdateCustomerRequest {
+  id: number
+  name?: string
+  address?: string
+  province?: string
+  district?: string
+  occupation?: string
+  religion?: string
+  nic?: string
+  chassisNumber?: string
+  motorNumber?: string
+  colorOfVehicle?: string
+  modelId?: number
+  paymentId?: number
+  dateOfBirth?: string
+  contactNumber?: number
+  whatsappNumber?: number
+  dateOfPurchase?: string
+  loyalityCardNo?: number
+  dateOfDelivery?: string
+  sellingAmount?: number
+  registrationFees?: number
+  advancePaymentAmount?: number
+  advancePaymentDate?: string
+  balancePaymentAmount?: number
+  balancePaymentDate?: string
+  isActive?: boolean
+}
+
+export async function updateCustomer(data: UpdateCustomerRequest): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CustomerDto>('/customer/update', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update customer' }
+}
+
+export interface UpdateCashRequest {
+  id: number
+  customerId: number
+  copyOfNic?: string
+  photographOne?: string
+  photographTwo?: string
+  paymentReceipt?: string
+  mta2?: string
+  slip?: string
+  chequeNumber?: number
+  isActive?: boolean
+}
+
+export async function updateCash(data: UpdateCashRequest): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<unknown>('/cash/update', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update cash' }
+}
+
+export interface UpdateLeaseRequest {
+  id: number
+  customerId: number
+  companyName?: string
+  purchaseOrderNumber?: number
+  copyOfNic?: string
+  photographOne?: string
+  photographTwo?: string
+  paymentReceipt?: string
+  mta2?: string
+  mta3?: string
+  chequeNumber?: number
+  isActive?: boolean
+}
+
+export async function updateLease(data: UpdateLeaseRequest): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<unknown>('/lease/update', data)
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update lease' }
 }
 
 export interface CustomerPageResponse {

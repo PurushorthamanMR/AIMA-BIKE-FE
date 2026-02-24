@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input'
 import { saveTransfer, getTransfers, type TransferDto } from '@/lib/transferApi'
 import { getStocksPage, type StockDto } from '@/lib/stockApi'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye } from 'lucide-react'
+import { Eye, Plus } from 'lucide-react'
+import Swal from 'sweetalert2'
 
 const emptyForm = {
   stockId: 0,
@@ -26,6 +27,7 @@ export default function Transfer() {
   const [viewTransfer, setViewTransfer] = useState<TransferDto | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +41,7 @@ export default function Transfer() {
   useEffect(() => {
     let cancelled = false
     setLoadingStocks(true)
-    getStocksPage(1, 200, true).then((list) => {
+    getStocksPage(1, 200).then((list) => {
       if (!cancelled) setStocks(list ?? [])
       setLoadingStocks(false)
     })
@@ -83,8 +85,14 @@ export default function Transfer() {
     if (result.success) {
       setSaveSuccess(true)
       setForm(emptyForm)
+      setShowForm(false)
       getTransfers().then((list) => setTransfers(list ?? []))
       setTimeout(() => setSaveSuccess(false), 3000)
+      await Swal.fire({
+        icon: 'success',
+        title: 'Successfully Saved',
+        text: 'Transfer saved successfully.',
+      })
     } else {
       setSaveError(result.error || 'Failed to save transfer')
     }
@@ -94,14 +102,17 @@ export default function Transfer() {
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Transfer</h2>
+        {!showForm && (
+          <Button onClick={() => { setShowForm(true); setSaveError(''); setForm(emptyForm) }} style={{ backgroundColor: '#AA336A' }}>
+            <Plus size={18} className="me-1" />
+            Add Transfer
+          </Button>
+        )}
       </div>
 
-      {/* Transfer Form */}
+      {/* Transfer Form - inline, like Dealer Invoice */}
+      {showForm && (
       <div className="card mb-4">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">New Transfer</h5>
-          <small>Stock transfer to company - reduces stock quantity</small>
-        </div>
         <form onSubmit={handleSubmit}>
           <div className="card-body">
             {saveError && <div className="alert alert-danger py-2 mb-3">{saveError}</div>}
@@ -118,14 +129,10 @@ export default function Transfer() {
                   <option value={0}>Select stock (model - color)</option>
                   {stocks.filter((s) => (s.quantity ?? 0) > 0).map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name || `ID ${s.id}`} - {s.color ?? '-'} (Qty: {s.quantity ?? 0})
+                      {s.modelDto?.name ?? `Stock #${s.id}`} - {s.color ?? '-'} (Qty: {s.quantity ?? 0})
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Quantity</label>
-                <Input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: parseInt(e.target.value, 10) || 1 })} className="form-control" />
               </div>
               <div className="col-md-6">
                 <label className="form-label">Company Name <span className="text-danger">*</span></label>
@@ -145,15 +152,20 @@ export default function Transfer() {
               </div>
             </div>
           </div>
-          <div className="card-footer">
+          <div className="card-footer d-flex justify-content-between align-items-center">
+            <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+              Cancel
+            </Button>
             <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
               Save Transfer
             </Button>
           </div>
         </form>
       </div>
+      )}
 
-      {/* Transfers Table */}
+      {/* Transfers Table - only show when form is hidden */}
+      {!showForm && (
       <div className="card">
         <div className="card-body">
           <Input
@@ -202,6 +214,7 @@ export default function Transfer() {
           )}
         </div>
       </div>
+      )}
 
       {viewTransfer && (
         <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setViewTransfer(null)}>

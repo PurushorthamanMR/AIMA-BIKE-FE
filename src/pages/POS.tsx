@@ -12,10 +12,11 @@ import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
 import { getStocksByModel, type StockDto } from '@/lib/stockApi'
 import Swal from 'sweetalert2'
 import { FileUploadField } from '@/components/FileUploadField'
+import { getDateOfBirthFromNIC } from '@/lib/nicUtils'
 import { saveCourier } from '@/lib/courierApi'
 import { getCustomersPage, type CustomerDto } from '@/lib/customerApi'
 
-type POSStep = 'categories' | 'bike-models' | 'bike-colors' | 'customer-form' | 'payment-option' | 'parts' | 'service'
+type POSStep = 'categories' | 'bike-models' | 'bike-colors' | 'customer-form' | 'payment-option' | 'parts' | 'service-courier-card' | 'service'
 
 // Customer Data Sheet - Only fields from form image (Customer Registration + Sales Dealer Details)
 interface CustomerFormData {
@@ -183,7 +184,7 @@ export default function POS() {
     }
     if (name.includes('service')) {
       setSelectedCategory(cat)
-      setStep('service')
+      setStep('service-courier-card')
       return
     }
     setSelectedCategory(cat)
@@ -361,6 +362,11 @@ export default function POS() {
     setCourierSaveError('')
   }
 
+  const handleBackFromCourierForm = () => {
+    setStep('service-courier-card')
+    setCourierSaveError('')
+  }
+
   const handleSaveCourier = async (e: React.FormEvent) => {
     e.preventDefault()
     setCourierSaveError('')
@@ -391,6 +397,11 @@ export default function POS() {
       sentDate: courierForm.sentDate || undefined,
     })
     if (result.success) {
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success',
+        text: 'Courier saved successfully.',
+      })
       setCourierSaveSuccess(true)
       setCourierForm({ name: '', contactNumber: '', address: '', sentDate: new Date().toISOString().split('T')[0], customerId: 0 })
       setTimeout(() => setCourierSaveSuccess(false), 3000)
@@ -401,7 +412,7 @@ export default function POS() {
 
   return (
     <div className="container-fluid py-4">
-      <h2 className="mb-4">POS - AIMA Showroom</h2>
+      <h2 className="mb-4">Customer Data Sheet</h2>
 
       {/* Step 1: Categories from backend */}
       {step === 'categories' && (
@@ -530,42 +541,37 @@ export default function POS() {
             </div>
           ) : (
             <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">Customer Data Sheet</h5>
-                <small>AIMA Showroom - {selectedModel?.name} - {formData.colourOfVehicle}</small>
-              </div>
               <form onSubmit={handleCustomerFormNext}>
                 <div className="card-body">
-                  <p className="text-muted small mb-3">(The above details will be used at the registration and make sure all are correct and clear.)</p>
                   <h6 className="border-bottom pb-2 mb-3">I. Customer Registration Details</h6>
                   <div className="row g-2">
-                    <div className="col-md-6"><label className="form-label">1. Name in Full</label><Input value={formData.nameInFull} onChange={(e) => setFormData({ ...formData, nameInFull: e.target.value })} required className="form-control" /></div>
-                    <div className="col-md-6"><label className="form-label">2. Address</label><Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">3. Province</label><Input value={formData.province} onChange={(e) => setFormData({ ...formData, province: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">4. District</label><Input value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">5. Occupation</label><Input value={formData.occupation} onChange={(e) => setFormData({ ...formData, occupation: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">6. Date of Birth</label><Input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">7. Religion</label><Input value={formData.religion} onChange={(e) => setFormData({ ...formData, religion: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">8. Contact Number</label><Input value={formData.contactNumber} onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })} required className="form-control" /></div>
-                    <div className="col-md-6"><label className="form-label">9. WhatsApp Number</label><Input value={formData.whatsAppNumber} onChange={(e) => setFormData({ ...formData, whatsAppNumber: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-6"><label className="form-label">10. NIC/Business Registration Number</label><Input value={formData.nicOrBusinessRegNo} onChange={(e) => setFormData({ ...formData, nicOrBusinessRegNo: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-6"><label className="form-label">Name in Full</label><Input value={formData.nameInFull} onChange={(e) => setFormData({ ...formData, nameInFull: e.target.value })} required className="form-control" /></div>
+                    <div className="col-md-6"><label className="form-label">Address</label><Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Province</label><Input value={formData.province} onChange={(e) => setFormData({ ...formData, province: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">District</label><Input value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Occupation</label><Input value={formData.occupation} onChange={(e) => setFormData({ ...formData, occupation: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Religion</label><Input value={formData.religion} onChange={(e) => setFormData({ ...formData, religion: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Contact Number</label><Input value={formData.contactNumber} onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })} required className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">WhatsApp Number</label><Input value={formData.whatsAppNumber} onChange={(e) => setFormData({ ...formData, whatsAppNumber: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-6"><label className="form-label">NIC/Business Registration Number</label><Input value={formData.nicOrBusinessRegNo} onChange={(e) => { const v = e.target.value; const dob = getDateOfBirthFromNIC(v); setFormData({ ...formData, nicOrBusinessRegNo: v, dateOfBirth: dob ?? formData.dateOfBirth }); }} className="form-control" /></div>
+                    <div className="col-md-6"><label className="form-label">Date of Birth (DD/MM/YYYY)</label><Input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className="form-control" /></div>
                   </div>
 
                   <p className="text-muted small mb-3 mt-4">The following details should be filled in by the sales dealer</p>
                   <h6 className="border-bottom pb-2 mb-3">II. Sales Dealer Details</h6>
                   <div className="row g-2">
-                    <div className="col-md-4"><label className="form-label">11. Model</label><Input value={formData.model} readOnly className="form-control bg-light" /></div>
-                    <div className="col-md-4"><label className="form-label">12. Chassis Number</label><Input value={formData.chassisNumber} onChange={(e) => setFormData({ ...formData, chassisNumber: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">13. Motor Number</label><Input value={formData.motorNumber} onChange={(e) => setFormData({ ...formData, motorNumber: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">14. Colour of Vehicle</label><Input value={formData.colourOfVehicle} readOnly className="form-control bg-light" /></div>
-                    <div className="col-md-4"><label className="form-label">15. Date of Purchase</label><Input type="date" value={formData.dateOfPurchase} onChange={(e) => setFormData({ ...formData, dateOfPurchase: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">16. AIMA CARE Loyalty Card No</label><Input value={formData.aimaCareLoyaltyCardNo} onChange={(e) => setFormData({ ...formData, aimaCareLoyaltyCardNo: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">17. Date of Delivery to Customer</label><Input type="date" value={formData.dateOfDeliveryToCustomer} onChange={(e) => setFormData({ ...formData, dateOfDeliveryToCustomer: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">18. Selling Price</label><Input type="number" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })} required className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">19. Registration Fee</label><Input type="number" value={formData.registrationFee} onChange={(e) => setFormData({ ...formData, registrationFee: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">20. Advance Payment Amount</label><Input type="number" value={formData.advancePaymentAmount} onChange={(e) => setFormData({ ...formData, advancePaymentAmount: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">20. Payment Date</label><Input type="date" value={formData.advancePaymentDate} onChange={(e) => setFormData({ ...formData, advancePaymentDate: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">22. Amount of Balance Payment</label><Input type="number" value={formData.balancePaymentAmount} readOnly className="form-control bg-light" /></div>
+                    <div className="col-md-4"><label className="form-label">Model</label><Input value={formData.model} readOnly className="form-control bg-light" /></div>
+                    <div className="col-md-4"><label className="form-label">Chassis Number</label><Input value={formData.chassisNumber} onChange={(e) => setFormData({ ...formData, chassisNumber: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Motor Number</label><Input value={formData.motorNumber} onChange={(e) => setFormData({ ...formData, motorNumber: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Colour of Vehicle</label><Input value={formData.colourOfVehicle} readOnly className="form-control bg-light" /></div>
+                    <div className="col-md-4"><label className="form-label">Date of Purchase</label><Input type="date" value={formData.dateOfPurchase} onChange={(e) => setFormData({ ...formData, dateOfPurchase: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">AIMA CARE Loyalty Card No</label><Input value={formData.aimaCareLoyaltyCardNo} onChange={(e) => setFormData({ ...formData, aimaCareLoyaltyCardNo: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Date of Delivery to Customer</label><Input type="date" value={formData.dateOfDeliveryToCustomer} onChange={(e) => setFormData({ ...formData, dateOfDeliveryToCustomer: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Selling Price</label><Input type="number" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })} required className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Registration Fee</label><Input type="number" value={formData.registrationFee} onChange={(e) => setFormData({ ...formData, registrationFee: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Advance Payment Amount</label><Input type="number" value={formData.advancePaymentAmount} onChange={(e) => setFormData({ ...formData, advancePaymentAmount: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Advance Payment Date</label><Input type="date" value={formData.advancePaymentDate} onChange={(e) => setFormData({ ...formData, advancePaymentDate: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Amount of Balance Payment</label><Input type="number" value={formData.balancePaymentAmount} readOnly className="form-control bg-light" /></div>
                     <div className="col-md-4"><label className="form-label">Balance Payment Date</label><Input type="date" value={formData.balancePaymentDate} onChange={(e) => setFormData({ ...formData, balancePaymentDate: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Type of Payment (Customer)</label><select className="form-select" value={formData.paymentType} onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}>{payments.length === 0 ? <option value="">Loading...</option> : payments.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                   </div>
@@ -588,10 +594,6 @@ export default function POS() {
       {/* Step 4: Payment Option - Cash or Lease */}
       {step === 'payment-option' && (
         <div className="card">
-          <div className="card-header bg-primary text-white">
-            <h5 className="mb-0">Payment Option</h5>
-            <small>Select Cash or Lease - Requirement for registration</small>
-          </div>
           <div className="card-body">
             <div className="row g-4 mb-4">
               <div className="col-md-6">
@@ -718,6 +720,42 @@ export default function POS() {
         </>
       )}
 
+      {/* Service - Courier card (click to open courier form) */}
+      {step === 'service-courier-card' && (
+        <div className="d-flex flex-column" style={{ minHeight: '400px' }}>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="mb-0">Service</h4>
+            <Button variant="outline" onClick={handleBackToCategories}>
+              <ArrowLeft size={18} className="me-1" />
+              Back
+            </Button>
+          </div>
+          <div className="row g-4">
+            <div className="col-md-4">
+              <div
+                className="card pos-category-card h-100 cursor-pointer"
+                onClick={() => setStep('service')}
+                style={{ transition: 'transform 0.2s, box-shadow 0.2s' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)'
+                  e.currentTarget.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,0.1)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = ''
+                  e.currentTarget.style.boxShadow = ''
+                }}
+              >
+                <div className="card-body text-center py-5">
+                  <Truck size={64} className="mb-3 text-info" />
+                  <h4>Courier</h4>
+                  <p className="text-muted mb-0">Add courier details for service items</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Service - Courier form */}
       {step === 'service' && (
         <div className="d-flex flex-column" style={{ minHeight: '400px' }}>
@@ -726,7 +764,7 @@ export default function POS() {
               <h4 className="mb-1">Service - Courier Form</h4>
               <p className="text-muted mb-0 small">Add courier details for service items. Saved couriers appear in the Courier page.</p>
             </div>
-            <Button variant="outline" onClick={handleBackToCategories}>
+            <Button variant="outline" onClick={handleBackFromCourierForm}>
               <ArrowLeft size={18} className="me-1" />
               Back
             </Button>
@@ -750,10 +788,6 @@ export default function POS() {
             </div>
           ) : (
             <div className="card">
-              <div className="card-header bg-warning text-dark">
-                <h5 className="mb-0">Courier Form</h5>
-                <small>Service category - {selectedCategory?.name ?? 'Service'}</small>
-              </div>
               <form onSubmit={handleSaveCourier}>
                 <div className="card-body">
                   {courierSaveError && <div className="alert alert-danger py-2 mb-3">{courierSaveError}</div>}
@@ -791,7 +825,7 @@ export default function POS() {
                   </div>
                 </div>
                 <div className="card-footer d-flex justify-content-between align-items-center">
-                  <Button variant="outline" type="button" onClick={handleBackToCategories}>
+                  <Button variant="outline" type="button" onClick={handleBackFromCourierForm}>
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>

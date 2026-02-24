@@ -9,6 +9,7 @@ import {
   type PaymentDto,
 } from '@/lib/paymentApi'
 import { Pencil, Plus } from 'lucide-react'
+import Swal from 'sweetalert2'
 
 export default function Payment() {
   const [list, setList] = useState<PaymentDto[]>([])
@@ -69,9 +70,13 @@ export default function Payment() {
       const res = await updatePayment({ id: editing.id, name: form.name.trim(), isActive: form.isActive })
       if (res.success) {
         setSuccess(true)
-        setTimeout(() => setSuccess(false), 2000)
         closeModal()
         load()
+        await Swal.fire({
+          icon: 'success',
+          title: 'Successfully Updated',
+          text: 'Payment updated successfully.',
+        })
       } else {
         setError(res.error ?? 'Update failed')
       }
@@ -79,9 +84,13 @@ export default function Payment() {
       const res = await savePayment({ name: form.name.trim(), isActive: form.isActive })
       if (res.success) {
         setSuccess(true)
-        setTimeout(() => setSuccess(false), 2000)
         closeModal()
         load()
+        await Swal.fire({
+          icon: 'success',
+          title: 'Successfully Added',
+          text: 'Payment added successfully.',
+        })
       } else {
         setError(res.error ?? 'Save failed')
       }
@@ -114,7 +123,6 @@ export default function Payment() {
               <table className="table table-hover mb-0">
                 <thead>
                   <tr>
-                    <th>ID</th>
                     <th>Name</th>
                     <th>Status</th>
                     <th className="text-end">Action</th>
@@ -123,7 +131,6 @@ export default function Payment() {
                 <tbody>
                   {list.map((p) => (
                     <tr key={p.id}>
-                      <td>{p.id}</td>
                       <td className="fw-medium">{p.name}</td>
                       <td>
                         <span className={`badge ${p.isActive !== false ? 'bg-success' : 'bg-secondary'}`}>

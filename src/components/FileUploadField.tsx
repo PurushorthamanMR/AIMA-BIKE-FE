@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { Upload, Check, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { uploadFile, getFileDisplayUrl, getUploadUrl } from '@/lib/uploadApi'
 
 interface FileUploadFieldProps {
@@ -15,10 +14,10 @@ interface FileUploadFieldProps {
 export function FileUploadField({ label, value, onChange, subfolder = 'cash', fieldName, accept = 'image/*,.pdf' }: FileUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const processFile = async (file: File) => {
     if (!file) return
     setError('')
     setUploading(true)
@@ -29,10 +28,35 @@ export function FileUploadField({ label, value, onChange, subfolder = 'cash', fi
     } else {
       setError(result.error || 'Upload failed')
     }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    await processFile(file!)
     e.target.value = ''
   }
 
-  const handleClear = () => {
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await processFile(file)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation()
     onChange('')
     setError('')
   }
@@ -61,56 +85,55 @@ export function FileUploadField({ label, value, onChange, subfolder = 'cash', fi
   return (
     <div className="col-md-6">
       <label className="form-label">{label}</label>
-      <div className="d-flex align-items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          onChange={handleFileChange}
-          disabled={uploading}
-          className="form-control d-none"
-          id={`upload-${label.replace(/\s/g, '-')}`}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-          className="d-flex align-items-center gap-1 shrink-0"
-        >
-          {uploading ? (
-            <>
-              <Loader2 size={16} className="animate-spin" />
-              Uploading...
-            </>
-          ) : (
-            <>
-              <Upload size={16} />
-              {value ? 'Change' : 'Upload'}
-            </>
-          )}
-        </Button>
-        {value && (
-          <>
-            <span className="text-success small d-flex align-items-center gap-1">
-              <Check size={14} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        onChange={handleFileChange}
+        disabled={uploading}
+        className="d-none"
+        id={`upload-${label.replace(/\s/g, '-')}`}
+      />
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => !uploading && inputRef.current?.click()}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`border rounded-2 p-3 text-center transition-all ${
+          isDragging ? 'border-primary bg-primary bg-opacity-10' : 'border-2 border-dashed'
+        } ${uploading ? 'opacity-75' : ''}`}
+        style={{ minHeight: 80, cursor: uploading ? 'not-allowed' : 'pointer' }}
+      >
+        {uploading ? (
+          <div className="d-flex align-items-center justify-content-center gap-2 text-muted">
+            <Loader2 size={20} className="animate-spin" />
+            <span>Uploading...</span>
+          </div>
+        ) : value ? (
+          <div className="d-flex flex-column align-items-center gap-1">
+            <span className="text-success d-flex align-items-center gap-1">
+              <Check size={18} />
               Uploaded
             </span>
-            <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={handleClear}>
+            {displayUrl && (
+              <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="small text-primary" onClick={(e) => e.stopPropagation()}>
+                View file
+              </a>
+            )}
+            <button type="button" className="btn btn-link btn-sm text-danger p-0 mt-1" onClick={handleClear}>
               Clear
             </button>
-          </>
+          </div>
+        ) : (
+          <div className="d-flex flex-column align-items-center gap-1 text-muted">
+            <Upload size={24} />
+            <span>Drag and drop or click to upload</span>
+          </div>
         )}
       </div>
-      {displayUrl && (
-        <div className="mt-1">
-          <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="small text-primary">
-            View file
-          </a>
-        </div>
-      )}
-      {error && <small className="text-danger d-block">{error}</small>}
+      {error && <small className="text-danger d-block mt-1">{error}</small>}
     </div>
   )
 }
