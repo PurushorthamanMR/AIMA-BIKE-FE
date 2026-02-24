@@ -8,7 +8,8 @@ import {
   updatePaymentStatus,
   type PaymentDto,
 } from '@/lib/paymentApi'
-import { Pencil, Plus } from 'lucide-react'
+import { Plus, CreditCard } from 'lucide-react'
+import EditIcon from '@/components/icons/EditIcon'
 import Swal from 'sweetalert2'
 
 export default function Payment() {
@@ -106,8 +107,13 @@ export default function Payment() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Payment</h2>
-        <Button onClick={openAdd} style={{ backgroundColor: '#AA336A' }}>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <CreditCard size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Payment</h2>
+        </div>
+        <Button onClick={openAdd} style={{ backgroundColor: 'var(--aima-primary)' }}>
           <Plus size={18} className="me-1" />
           Add Payment
         </Button>
@@ -131,25 +137,27 @@ export default function Payment() {
                 <tbody>
                   {list.map((p) => (
                     <tr key={p.id}>
-                      <td className="fw-medium">{p.name}</td>
-                      <td>
+                      <td className="fw-medium align-middle">{p.name}</td>
+                      <td className="align-middle">
                         <span className={`badge ${p.isActive !== false ? 'bg-success' : 'bg-secondary'}`}>
                           {p.isActive !== false ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="text-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="me-1"
-                          onClick={() => handleToggleStatus(p)}
-                          title={p.isActive !== false ? 'Set inactive' : 'Set active'}
-                        >
-                          {p.isActive !== false ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button variant="ghost" size="sm" className="p-1" onClick={() => openEdit(p)} title="Edit">
-                          <Pencil size={18} className="text-primary" />
-                        </Button>
+                      <td className="text-end align-middle">
+                        <div className="d-flex align-items-center justify-content-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="me-1"
+                            onClick={() => handleToggleStatus(p)}
+                            title={p.isActive !== false ? 'Set inactive' : 'Set active'}
+                          >
+                            {p.isActive !== false ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center justify-content-center" style={{ minHeight: 36 }} onClick={() => openEdit(p)} title="Edit">
+                            <EditIcon size={18} className="text-dark" style={{ marginTop: 3 }} />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

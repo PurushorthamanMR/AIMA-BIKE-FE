@@ -12,13 +12,15 @@ export interface ApiResponse<T> {
   responseDto: T | null
 }
 
+const TOKEN_KEY = 'aima_pos_token'
+
 export function getToken(): string | null {
-  return localStorage.getItem('aima_pos_token')
+  return sessionStorage.getItem(TOKEN_KEY)
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem('aima_pos_token', token)
-  else localStorage.removeItem('aima_pos_token')
+  if (token) sessionStorage.setItem(TOKEN_KEY, token)
+  else sessionStorage.removeItem(TOKEN_KEY)
 }
 
 async function request<T>(

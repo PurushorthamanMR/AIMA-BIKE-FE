@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getStocksPage, type StockDto } from '@/lib/stockApi'
 import { Link } from 'react-router-dom'
-import { Pencil } from 'lucide-react'
+import EditIcon from '@/components/icons/EditIcon'
+import { Package } from 'lucide-react'
 
 export default function Stock() {
   const [stocks, setStocks] = useState<StockDto[]>([])
@@ -36,7 +37,12 @@ export default function Stock() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Stock</h2>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Package size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Stock</h2>
+        </div>
       </div>
 
       <div className="card">
@@ -67,15 +73,15 @@ export default function Stock() {
                   <tbody>
                     {filteredStocks.map((s) => (
                       <tr key={s.id}>
-                        <td>{s.modelDto?.name ?? '-'}</td>
-                        <td>{s.itemCode ?? '-'}</td>
-                        <td>{s.chassisNumber ?? '-'}</td>
-                        <td>{s.motorNumber ?? '-'}</td>
-                        <td>{s.color ?? '-'}</td>
-                        <td>
-                          <Link to={`/stock/${s.id}`} className="text-decoration-none">
-                            <Button variant="ghost" size="sm" className="p-1" title="Edit">
-                              <Pencil size={20} className="text-warning" />
+                        <td className="align-middle">{s.modelDto?.name ?? '-'}</td>
+                        <td className="align-middle">{s.itemCode ?? '-'}</td>
+                        <td className="align-middle">{s.chassisNumber ?? '-'}</td>
+                        <td className="align-middle">{s.motorNumber ?? '-'}</td>
+                        <td className="align-middle">{s.color ?? '-'}</td>
+                        <td className="align-middle">
+                          <Link to={`/stock/${s.id}`} className="text-decoration-none d-inline-flex align-items-center">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" title="Edit">
+                              <EditIcon size={20} className="text-dark" />
                             </Button>
                           </Link>
                         </td>

@@ -8,7 +8,9 @@ import {
   type ModelDto,
 } from '@/lib/modelApi'
 import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
-import { Pencil, Plus } from 'lucide-react'
+import { Plus, Bike } from 'lucide-react'
+import EditIcon from '@/components/icons/EditIcon'
+import { FileUploadField } from '@/components/FileUploadField'
 
 export default function BikeModels() {
   const [categories, setCategories] = useState<CategoryDto[]>([])
@@ -125,8 +127,13 @@ export default function BikeModels() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Bike Models</h2>
-        <Button onClick={openAddModal} style={{ backgroundColor: '#AA336A' }}>
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <Bike size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Bike Models</h2>
+        </div>
+        <Button onClick={openAddModal} style={{ backgroundColor: 'var(--aima-primary)' }}>
           <Plus size={18} className="me-1" />
           Add Model
         </Button>
@@ -149,10 +156,10 @@ export default function BikeModels() {
                 <tbody>
                   {models.map((m) => (
                     <tr key={m.id}>
-                      <td className="fw-medium">{m.name}</td>
-                      <td className="text-end">
-                        <Button variant="ghost" size="sm" className="p-1" onClick={() => openEditModal(m)} title="Edit">
-                          <Pencil size={18} className="text-primary" />
+                      <td className="fw-medium align-middle">{m.name}</td>
+                      <td className="text-end align-middle">
+                        <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => openEditModal(m)} title="Edit">
+                          <EditIcon size={18} className="text-dark" />
                         </Button>
                       </td>
                     </tr>
@@ -201,15 +208,15 @@ export default function BikeModels() {
                         className="form-control"
                       />
                     </div>
-                    <div className="col-12">
-                      <label className="form-label">Image URL</label>
-                      <Input
-                        value={modelForm.imageUrl}
-                        onChange={(e) => setModelForm({ ...modelForm, imageUrl: e.target.value })}
-                        placeholder="https://..."
-                        className="form-control"
-                      />
-                    </div>
+                    <FileUploadField
+                      label="Image"
+                      value={modelForm.imageUrl}
+                      onChange={(v) => setModelForm({ ...modelForm, imageUrl: v })}
+                      subfolder="bike-models"
+                      fieldName="image"
+                      accept="image/*"
+                      className="col-12"
+                    />
                   </div>
                   <div className="d-flex gap-2 justify-content-end">
                     <Button type="button" variant="outline" onClick={closeModal}>Cancel</Button>

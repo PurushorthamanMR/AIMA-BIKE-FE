@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Mail, Lock } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -46,12 +47,20 @@ export default function Login() {
             )}
           </div>
 
-          <h4 className="text-center fw-bold mb-1">Login</h4>
-          <p className="text-center text-muted mb-4">Showroom - Bike Sales POS</p>
+          <div className="text-center mb-4">
+            <div className="rounded-circle d-inline-flex align-items-center justify-content-center p-2 mb-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+              <Lock size={24} style={{ color: 'var(--aima-primary)' }} />
+            </div>
+            <h4 className="fw-bold mb-1" style={{ color: 'var(--aima-secondary)' }}>Login</h4>
+            <p className="text-muted mb-0 small">Showroom - Bike Sales POS</p>
+          </div>
 
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label fw-medium">Email</label>
+              <label className="form-label fw-medium d-flex align-items-center gap-2">
+                <Mail size={16} style={{ color: 'var(--aima-primary)' }} />
+                Email
+              </label>
               <Input
                 type="email"
                 value={email}
@@ -62,7 +71,10 @@ export default function Login() {
               />
             </div>
             <div className="mb-4">
-              <label className="form-label fw-medium">Password</label>
+              <label className="form-label fw-medium d-flex align-items-center gap-2">
+                <Lock size={16} style={{ color: 'var(--aima-primary)' }} />
+                Password
+              </label>
               <div className="position-relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
@@ -74,7 +86,7 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  className="position-absolute top-50 end-0 translate-middle-y bg-transparent border-0 p-2"
+                  className="position-absolute top-50 inset-e-0 translate-middle-y bg-transparent border-0 p-2"
                   style={{ right: '4px' }}
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -103,7 +115,8 @@ export default function Login() {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-100 login-btn py-2">
+            <Button type="submit" className="w-100 login-btn py-2 d-flex align-items-center justify-content-center gap-2">
+              <Lock size={18} />
               Login
             </Button>
           </form>

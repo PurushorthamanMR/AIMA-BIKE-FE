@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import type { User, UserRole } from '@/types'
 import { login as apiLogin } from '@/lib/authApi'
+import { getUserByEmail } from '@/lib/userApi'
 import { getToken, setToken } from '@/lib/api'
 import { decodeJwtPayload } from '@/lib/jwt'
 
@@ -30,11 +31,12 @@ function loadStoredUser(): User | null {
         // fall through to build from token
       }
     }
+    const displayName = [payload.firstName, payload.lastName].filter(Boolean).join(' ').trim()
     return {
       id: String(payload.userId ?? ''),
       username: payload.sub,
       role: (payload.role?.toLowerCase() ?? 'staff') as UserRole,
-      name: payload.sub,
+      name: displayName || payload.sub,
     }
   } catch {
     return null
@@ -56,6 +58,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     saveUser(user)
   }, [user])
 
+  // Fetch user name when we have user but name is email (e.g. from old token/stored)
+  useEffect(() => {
+    if (!user?.username || !user.username.includes('@')) return
+    if (user.name && !user.name.includes('@')) return // already have proper name
+    getUserByEmail(user.username)
+      .then((profile) => {
+        if (profile?.firstName || profile?.lastName) {
+          const displayName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim()
+          if (displayName) {
+            setUser((prev) => (prev ? { ...prev, name: displayName } : null))
+          }
+        }
+      })
+      .catch(() => {})
+  }, [user?.username, user?.name])
+
   const login = useCallback(async (email: string, password: string) => {
     const result = await apiLogin(email, password)
     if (!result.success) return false
@@ -64,11 +82,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return false
 
     const payload = decodeJwtPayload(token)
+    const emailFromToken = payload?.sub ?? email
+    let displayName = ''
+    try {
+      const userProfile = await getUserByEmail(emailFromToken)
+      if (userProfile?.firstName || userProfile?.lastName) {
+        displayName = [userProfile.firstName, userProfile.lastName].filter(Boolean).join(' ').trim()
+      }
+    } catch {
+      // fallback to email if fetch fails
+    }
     const userData: User = {
       id: String(payload?.userId ?? ''),
       username: payload?.sub ?? email,
       role: (payload?.role?.toLowerCase() ?? 'staff') as UserRole,
-      name: payload?.sub ?? email,
+      name: displayName || emailFromToken,
     }
     setUser(userData)
     return true

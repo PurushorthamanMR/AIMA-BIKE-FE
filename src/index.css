@@ -3,6 +3,24 @@
 /* Bootstrap - Styling */
 @import "bootstrap/dist/css/bootstrap.min.css";
 
+/* Premium Colors - AIMA Professional Theme */
+:root {
+  --aima-primary: #AA336A;
+  --aima-primary-dark: #8f2a59;
+  --aima-primary-light: #e8c4d9;
+  --aima-secondary: #1e3a5f;
+  --aima-secondary-light: #2d5a8a;
+  --aima-accent: #d4a853;
+  --aima-success: #0d9488;
+  --aima-info: #0ea5e9;
+  --aima-warning: #f59e0b;
+  --aima-danger: #dc2626;
+  --aima-surface: #f8fafc;
+  --aima-card: #ffffff;
+  --aima-border: #e2e8f0;
+  --aima-muted: #64748b;
+}
+
 /* ShadCN Theme Variables */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -14,25 +32,25 @@
 :root {
   --sidebar-width: 260px;
   --sidebar-width-collapsed: 72px;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.145 0.02 260);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.55 0.2 350);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.97 0.01 260);
+  --secondary-foreground: oklch(0.25 0.05 260);
+  --muted: oklch(0.96 0.01 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --accent: oklch(0.97 0.02 80);
+  --accent-foreground: oklch(0.25 0.05 80);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.91 0.01 260);
+  --input: oklch(0.91 0.01 260);
+  --ring: oklch(0.55 0.2 350);
   --radius: 0.625rem;
 }
 
@@ -58,84 +76,164 @@
   --ring: oklch(0.439 0 0);
 }
 
-/* Login page - AIMA brand color (#AA336A pink) */
+/* Login page - premium AIMA style */
 .login-form-card {
-  border: 2px solid #AA336A !important;
-  border-radius: 12px;
+  border: 2px solid var(--aima-primary) !important;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(30, 58, 95, 0.12) !important;
 }
 
 .login-input {
-  border: 2px solid #AA336A !important;
-  border-radius: 8px;
+  border: 2px solid var(--aima-border) !important;
+  border-radius: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .login-input:focus {
-  border-color: #AA336A !important;
-  box-shadow: 0 0 0 0.2rem rgba(170, 51, 106, 0.25);
+  border-color: var(--aima-primary) !important;
+  box-shadow: 0 0 0 3px rgba(170, 51, 106, 0.15);
   outline: none;
 }
 
 .login-btn {
-  background-color: #AA336A !important;
+  background: linear-gradient(135deg, var(--aima-primary) 0%, var(--aima-primary-dark) 100%) !important;
   border: none !important;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #ffffff !important;
-}
-.login-btn:hover {
-  background-color: #8f2a59 !important;
-  color: #ffffff !important;
-}
-
-/* Dashboard cards - each with unique color border */
-.dashboard-card {
-  border-radius: 12px;
-  border-top: 4px solid;
+  font-weight: 600;
   transition: transform 0.2s, box-shadow 0.2s;
 }
-.dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+.login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(170, 51, 106, 0.35) !important;
+  color: #ffffff !important;
 }
-.dashboard-card-sales {
-  border-top-color: #198754;
-}
-.dashboard-card-sales h6 { color: #198754; }
-.dashboard-card-credit {
-  border-top-color: #fd7e14;
-}
-.dashboard-card-credit h6 { color: #fd7e14; }
-.dashboard-card-customers {
-  border-top-color: #0d6efd;
-}
-.dashboard-card-customers h6 { color: #0d6efd; }
-.dashboard-card-invoices {
-  border-top-color: #AA336A;
-}
-.dashboard-card-invoices h6 { color: #AA336A; }
 
-/* POS Page - Professional layout */
+/* Dashboard cards - premium style with colored border */
+.dashboard-card {
+  border-radius: 12px;
+  border: 2px solid;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: var(--aima-card);
+}
+.dashboard-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(30, 58, 95, 0.08) !important;
+}
+.dashboard-card-sales { border-color: var(--aima-success); }
+.dashboard-card-sales h6 { color: var(--aima-success); }
+.dashboard-card-credit { border-color: var(--aima-accent); }
+.dashboard-card-credit h6 { color: var(--aima-accent); }
+.dashboard-card-customers { border-color: var(--aima-info); }
+.dashboard-card-customers h6 { color: var(--aima-info); }
+.dashboard-card-invoices { border-color: var(--aima-primary); }
+.dashboard-card-invoices h6 { color: var(--aima-primary); }
+
+/* POS Page - premium layout */
 .pos-page {
-  background: #f8f9fa;
+  background: var(--aima-surface);
   min-height: calc(100vh - 60px);
   padding-bottom: 2rem;
 }
-.pos-header {
-  padding: 0.5rem 0;
-}
+.pos-header { padding: 0.5rem 0; }
 .pos-card {
-  border-radius: 10px;
-  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  border: 1px solid var(--aima-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.pos-product-btn {
-  transition: all 0.15s;
-}
+.pos-product-btn { transition: all 0.2s; }
 .pos-product-btn:hover {
-  background: #AA336A !important;
+  background: var(--aima-primary) !important;
   color: white !important;
-  border-color: #AA336A !important;
+  border-color: var(--aima-primary) !important;
+  box-shadow: 0 4px 12px rgba(170, 51, 106, 0.25);
 }
 .pos-bill-card {
-  border: 2px solid #AA336A;
+  border: 2px solid var(--aima-primary);
   border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(170, 51, 106, 0.1);
+}
+
+/* POS category cards - Bike, Parts, Services - interactive & beautiful */
+.pos-category-card {
+  border-radius: 16px;
+  border: 2px solid;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+}
+.pos-category-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+.pos-category-card:active {
+  transform: translateY(-4px) scale(1.01);
+}
+.pos-category-card-bike {
+  border-color: var(--aima-info);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(14, 165, 233, 0.04) 100%);
+}
+.pos-category-card-bike:hover {
+  border-color: var(--aima-info);
+  box-shadow: 0 16px 40px rgba(14, 165, 233, 0.25);
+}
+.pos-category-card-parts {
+  border-color: var(--aima-success);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(13, 148, 136, 0.04) 100%);
+}
+.pos-category-card-parts:hover {
+  border-color: var(--aima-success);
+  box-shadow: 0 16px 40px rgba(13, 148, 136, 0.25);
+}
+.pos-category-card-service {
+  border-color: var(--aima-accent);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(212, 168, 83, 0.06) 100%);
+}
+.pos-category-card-service:hover {
+  border-color: var(--aima-accent);
+  box-shadow: 0 16px 40px rgba(212, 168, 83, 0.3);
+}
+.pos-category-card-courier {
+  border-color: var(--aima-primary);
+  background: linear-gradient(180deg, #ffffff 0%, rgba(170, 51, 106, 0.04) 100%);
+}
+.pos-category-card-courier:hover {
+  border-color: var(--aima-primary);
+  box-shadow: 0 16px 40px rgba(170, 51, 106, 0.25);
+}
+.pos-category-card .card-body {
+  transition: background 0.25s ease;
+}
+.pos-category-card:hover .card-body {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* POS bike color cards */
+.pos-color-card {
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.pos-color-card:hover:not(.opacity-50) {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(170, 51, 106, 0.2);
+}
+.pos-color-card.opacity-50 { cursor: not-allowed; }
+
+/* Page cards - premium */
+.page-card {
+  border-radius: 12px;
+  border: 1px solid var(--aima-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.btn-aima-primary {
+  background: var(--aima-primary) !important;
+  border-color: var(--aima-primary) !important;
+  color: white !important;
+}
+.btn-aima-primary:hover {
+  background: var(--aima-primary-dark) !important;
+  border-color: var(--aima-primary-dark) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(170, 51, 106, 0.3);
 }
 
 /* Bill Print - 80mm thermal */
@@ -160,7 +258,24 @@
 /* Custom base styles */
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--background);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--aima-surface);
   color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sidebar nav hover */
+.sidebar-nav-link:hover {
+  background-color: rgba(255,255,255,0.08) !important;
+  color: white !important;
+}
+
+/* Table premium styling */
+.table-hover tbody tr:hover {
+  background-color: rgba(170, 51, 106, 0.04) !important;
+}
+.table thead th {
+  font-weight: 600;
+  color: var(--aima-secondary);
+  border-bottom: 2px solid var(--aima-border);
 }
