@@ -1,65 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
-import Login from '@/pages/auth/Login'
-import DashboardLayout from '@/components/layout/DashboardLayout'
-import Dashboard from '@/pages/Dashboard'
-import POS from '@/pages/POS'
-import Customers from '@/pages/Customers'
-import Courier from '@/pages/Courier'
-import CourierDetail from '@/pages/CourierDetail'
-import CourierEdit from '@/pages/CourierEdit'
-import Transfer from '@/pages/Transfer'
-import DealerInvoice from '@/pages/DealerInvoice'
-import DealerInvoiceDetail from '@/pages/DealerInvoiceDetail'
-import Stock from '@/pages/Stock'
-import StockDetail from '@/pages/StockDetail'
-import BikeModels from '@/pages/BikeModels'
-import Category from '@/pages/Category'
-import Payment from '@/pages/Payment'
-import Reports from '@/pages/Reports'
-import Settings from '@/pages/Settings'
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth()
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-  return <>{children}</>
-}
+import { AppRouter } from '@/router'
 
 function App() {
-  const { isAuthenticated } = useAuth()
-  return (
-    <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="pos" element={<POS />} />
-        <Route path="customers" element={<Customers />} />
-        <Route path="courier" element={<Courier />} />
-        <Route path="courier/:id" element={<CourierDetail />} />
-        <Route path="courier/:id/edit" element={<CourierEdit />} />
-        <Route path="transfer" element={<Transfer />} />
-        <Route path="dealer-invoice" element={<DealerInvoice />} />
-        <Route path="dealer-invoice/:id" element={<DealerInvoiceDetail />} />
-        <Route path="stock" element={<Stock />} />
-        <Route path="stock/:id" element={<StockDetail />} />
-        <Route path="bike-models" element={<BikeModels />} />
-        <Route path="category" element={<Category />} />
-        <Route path="payment" element={<Payment />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
-    </Routes>
-  )
+  return <AppRouter />
 }
 
 export default App
