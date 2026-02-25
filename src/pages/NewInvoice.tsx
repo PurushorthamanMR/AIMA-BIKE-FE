@@ -259,7 +259,7 @@ export default function NewInvoice() {
                       <button
                         type="button"
                         className="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-1"
-                        style={{ backgroundColor: '#AA336A', color: 'white' }}
+                        style={{ backgroundColor: 'var(--aima-primary)', color: 'white' }}
                         onClick={() => {
                           setCustomerDropdownOpen(false)
                           setShowAddCustomerModal(true)
@@ -486,7 +486,7 @@ export default function NewInvoice() {
 
               <Button
                 className="w-100"
-                style={{ backgroundColor: '#AA336A' }}
+                style={{ backgroundColor: 'var(--aima-primary)' }}
                 onClick={handleCreateInvoice}
                 disabled={cart.length === 0}
               >
@@ -566,7 +566,7 @@ export default function NewInvoice() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" style={{ backgroundColor: '#AA336A' }} disabled={!newCustomerForm.name.trim() || !newCustomerForm.phone.trim()}>
+                <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }} disabled={!newCustomerForm.name.trim() || !newCustomerForm.phone.trim()}>
                   Add Customer
                 </Button>
               </div>
@@ -586,7 +586,7 @@ export default function NewInvoice() {
               <div className="d-flex flex-wrap gap-2 justify-content-center">
                 <Button
                   onClick={() => window.print()}
-                  style={{ backgroundColor: '#AA336A' }}
+                  style={{ backgroundColor: 'var(--aima-primary)' }}
                 >
                   Print Bill
                 </Button>

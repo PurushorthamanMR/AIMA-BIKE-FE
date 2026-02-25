@@ -76,9 +76,9 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         ) : (
           <div className="d-flex flex-column align-items-center">
             <img
-              src="/images_logos/Logo.png"
+              src="/images_logos/logo.jpg"
               alt="AIMA Logo"
-              style={collapsed ? { maxHeight: '36px', objectFit: 'contain' } : { maxHeight: '56px', objectFit: 'contain' }}
+              style={collapsed ? { maxHeight: '28px', objectFit: 'contain' } : { maxHeight: '42px', objectFit: 'contain' }}
               onError={() => setLogoError(true)}
             />
             {!collapsed && <small className="text-white mt-2">Bike Sales POS</small>}

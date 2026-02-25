@@ -230,7 +230,7 @@ export default function DealerInvoiceDetail() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2 className="mb-0">Dealer Invoice - {note.consignmentNoteNo}</h2>
         <div className="d-flex gap-2">
-          <Button variant="outline" onClick={() => downloadDealerInvoicePDF(note)} style={{ borderColor: '#AA336A', color: '#AA336A' }}>
+          <Button variant="outline" onClick={() => downloadDealerInvoicePDF(note)} style={{ borderColor: 'var(--aima-primary)', color: 'var(--aima-primary)' }}>
             <FileDown size={18} className="me-1" />
             PDF
           </Button>

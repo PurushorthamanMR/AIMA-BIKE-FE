@@ -18,6 +18,7 @@ import Category from '@/pages/Category'
 import Payment from '@/pages/Payment'
 import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
+import PageNotFound from '@/pages/PageNotFound'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -35,9 +36,13 @@ export function AppRouter() {
       <Route
         path="/"
         element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
+          !isAuthenticated ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          )
         }
       >
         <Route index element={<Dashboard />} />
@@ -57,7 +62,7 @@ export function AppRouter() {
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
-      <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
+      <Route path="*" element={<PageNotFound />} />
     </Routes>
   )
 }

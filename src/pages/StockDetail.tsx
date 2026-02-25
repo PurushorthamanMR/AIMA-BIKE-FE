@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getStockById, updateStock, type StockDto } from '@/lib/stockApi'
+import { getStockById, getStocksPage, updateStock, type StockDto } from '@/lib/stockApi'
 import { getModelsPage, type ModelDto } from '@/lib/modelApi'
 import { ArrowLeft } from 'lucide-react'
 import Swal from 'sweetalert2'
@@ -11,6 +11,7 @@ export default function StockDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [stock, setStock] = useState<StockDto | null>(null)
+  const [allStocks, setAllStocks] = useState<StockDto[]>([])
   const [models, setModels] = useState<ModelDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -52,6 +53,10 @@ export default function StockDetail() {
     getModelsPage(1, 200, true).then((list) => setModels(list ?? []))
   }, [])
 
+  useEffect(() => {
+    getStocksPage(1, 2000).then((r) => setAllStocks(r.content ?? []))
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!stock) return
@@ -60,12 +65,50 @@ export default function StockDetail() {
       setError('Select model')
       return
     }
+    const chassisTrimmed = form.chassisNumber.trim()
+    const motorTrimmed = form.motorNumber.trim()
+    if (chassisTrimmed || motorTrimmed) {
+      const { content: allStocks } = await getStocksPage(1, 2000)
+      const chassisLower = chassisTrimmed.toLowerCase()
+      const motorLower = motorTrimmed.toLowerCase()
+      const duplicateChassis = chassisTrimmed && allStocks.some(
+        (s) => s.id !== stock.id && (s.chassisNumber ?? '').trim().toLowerCase() === chassisLower
+      )
+      const duplicateMotor = motorTrimmed && allStocks.some(
+        (s) => s.id !== stock.id && (s.motorNumber ?? '').trim().toLowerCase() === motorLower
+      )
+      if (duplicateChassis) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Duplicate',
+          text: 'Chassis Number already exists for another stock.',
+        })
+        return
+      }
+      if (duplicateMotor) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Duplicate',
+          text: 'Motor Number already exists for another stock.',
+        })
+        return
+      }
+    }
+    const { isConfirmed } = await Swal.fire({
+      title: 'Confirm',
+      text: 'Are you sure you want to update this stock?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'Cancel',
+    })
+    if (!isConfirmed) return
     const res = await updateStock({
       id: stock.id,
       modelId: form.modelId,
       itemCode: form.itemCode.trim() || undefined,
-      chassisNumber: form.chassisNumber.trim() || undefined,
-      motorNumber: form.motorNumber.trim() || undefined,
+      chassisNumber: chassisTrimmed || undefined,
+      motorNumber: motorTrimmed || undefined,
       color: form.color.trim() || undefined,
     })
     if (res.success) {
@@ -77,6 +120,11 @@ export default function StockDetail() {
       })
     } else {
       setError(res.error ?? 'Update failed')
+      await Swal.fire({
+        icon: 'error',
+        title: 'Update failed',
+        text: res.error ?? 'Update failed',
+      })
     }
   }
 
@@ -88,10 +136,10 @@ export default function StockDetail() {
     )
   }
 
-  if (error || !stock) {
+  if (!stock) {
     return (
       <div className="container-fluid">
-        <div className="alert alert-warning">{error || 'Not found'}</div>
+        <div className="alert alert-warning">{error || 'Stock not found'}</div>
         <Button variant="outline" onClick={() => navigate('/stock')}>
           <ArrowLeft size={18} className="me-1" />
           Back to Stock
@@ -136,10 +184,16 @@ export default function StockDetail() {
               <div className="col-md-6">
                 <label className="form-label">Chassis Number</label>
                 <Input value={form.chassisNumber} onChange={(e) => setForm({ ...form, chassisNumber: e.target.value })} className="form-control" placeholder="Chassis" />
+                {form.chassisNumber.trim() && allStocks.some((s) => s.id !== stock.id && (s.chassisNumber ?? '').trim().toLowerCase() === form.chassisNumber.trim().toLowerCase()) && (
+                  <p className="text-danger small mb-0 mt-1" role="alert">Chassis Number already exists</p>
+                )}
               </div>
               <div className="col-md-6">
                 <label className="form-label">Motor Number</label>
                 <Input value={form.motorNumber} onChange={(e) => setForm({ ...form, motorNumber: e.target.value })} className="form-control" placeholder="Motor" />
+                {form.motorNumber.trim() && allStocks.some((s) => s.id !== stock.id && (s.motorNumber ?? '').trim().toLowerCase() === form.motorNumber.trim().toLowerCase()) && (
+                  <p className="text-danger small mb-0 mt-1" role="alert">Motor Number already exists</p>
+                )}
               </div>
               <div className="col-md-6">
                 <label className="form-label">Color</label>
@@ -147,7 +201,7 @@ export default function StockDetail() {
               </div>
             </div>
             <div className="mt-4">
-              <Button type="submit" style={{ backgroundColor: '#AA336A' }}>Update</Button>
+              <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>Update</Button>
             </div>
           </form>
         </div>

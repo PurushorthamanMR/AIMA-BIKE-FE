@@ -20,7 +20,7 @@ import { BarChart3, TrendingUp, DollarSign, Hash } from 'lucide-react'
 
 type PeriodType = 'daily' | 'monthly' | 'yearly'
 
-const CHART_COLORS = ['#AA336A', '#198754', '#0d6efd', '#fd7e14', '#6f42c1', '#20c997', '#dc3545', '#ffc107']
+const CHART_COLORS = ['#E31C79', '#198754', '#E31C79', '#fd7e14', '#6f42c1', '#20c997', '#dc3545', '#ffc107']
 
 export default function Reports() {
   const [sales, setSales] = useState<ReportSaleRecord[]>([])
@@ -259,7 +259,7 @@ export default function Reports() {
                       formatter={(value: number) => [formatCurrency(value), 'Sales']}
                       labelFormatter={(label) => `Period: ${label}`}
                     />
-                    <Bar dataKey="sales" fill="#AA336A" radius={[4, 4, 0, 0]} name="Sales" />
+                    <Bar dataKey="sales" fill="var(--aima-primary)" radius={[4, 4, 0, 0]} name="Sales" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -351,7 +351,7 @@ export default function Reports() {
                         formatter={(value: number) => [formatCurrency(value), 'Sales']}
                         labelFormatter={(label) => `Period: ${label}`}
                       />
-                      <Line type="monotone" dataKey="sales" stroke="#AA336A" strokeWidth={2} dot={{ r: 3 }} name="Sales" />
+                      <Line type="monotone" dataKey="sales" stroke="var(--aima-primary)" strokeWidth={2} dot={{ r: 3 }} name="Sales" />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

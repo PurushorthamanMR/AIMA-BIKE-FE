@@ -91,7 +91,7 @@ export default function CourierEdit() {
           </div>
           <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Edit Courier</h2>
         </div>
-        <Button variant="outline" onClick={() => navigate(`/courier/${id}`)}>
+        <Button variant="outline" onClick={() => navigate('/courier')}>
           <ArrowLeft size={18} className="me-1" />
           Back
         </Button>
@@ -136,7 +136,15 @@ export default function CourierEdit() {
               </div>
               <div className="col-md-6">
                 <label className="form-label">Contact Number</label>
-                <Input className="form-control" value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} placeholder="Contact number" />
+                <Input
+                  type="tel"
+                  className="form-control"
+                  value={form.contactNumber}
+                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  onKeyDown={(e) => { if (!/^\d$/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) e.preventDefault() }}
+                  placeholder="10 numbers only"
+                  maxLength={10}
+                />
               </div>
               <div className="col-md-6">
                 <label className="form-label">Sent Date</label>
@@ -151,7 +159,7 @@ export default function CourierEdit() {
               <Button type="submit" disabled={saving} style={{ backgroundColor: 'var(--aima-primary)' }}>
                 {saving ? 'Saving...' : 'Update Courier'}
               </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(`/courier/${id}`)}>
+              <Button type="button" variant="outline" onClick={() => navigate('/courier')}>
                 Cancel
               </Button>
             </div>

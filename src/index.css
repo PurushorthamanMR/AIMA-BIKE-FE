@@ -3,12 +3,15 @@
 /* Bootstrap - Styling */
 @import "bootstrap/dist/css/bootstrap.min.css";
 
-/* Premium Colors - AIMA Professional Theme */
+/* Premium Colors - AIMA Professional Theme - No blue, use #E31C79 */
 :root {
-  --aima-primary: #AA336A;
-  --aima-primary-dark: #8f2a59;
-  --aima-primary-light: #e8c4d9;
+  --aima-primary: #E31C79;
+  --aima-primary-dark: #c01866;
+  --aima-primary-light: #f5c4e0;
   --aima-secondary: #1e3a5f;
+  /* Bootstrap: override default blue primary with theme */
+  --bs-primary: #E31C79;
+  --bs-primary-rgb: 227, 28, 121;
   --aima-secondary-light: #2d5a8a;
   --aima-accent: #d4a853;
   --aima-success: #0d9488;
@@ -38,8 +41,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.2 350);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #E31C79;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.97 0.01 260);
   --secondary-foreground: oklch(0.25 0.05 260);
   --muted: oklch(0.96 0.01 260);
@@ -50,7 +53,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.91 0.01 260);
   --input: oklch(0.91 0.01 260);
-  --ring: oklch(0.55 0.2 350);
+  --ring: #E31C79;
   --radius: 0.625rem;
 }
 
@@ -61,8 +64,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #E31C79;
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -74,6 +77,19 @@
   --border: oklch(0.269 0 0);
   --input: oklch(0.269 0 0);
   --ring: oklch(0.439 0 0);
+}
+
+/* Category status toggle: green = active, red = off */
+.category-status-switch.form-check .form-check-input {
+  border: 1px solid transparent;
+}
+.category-status-switch.form-check .form-check-input:checked {
+  background-color: #22c55e;
+  border-color: #22c55e;
+}
+.category-status-switch.form-check .form-check-input:not(:checked) {
+  background-color: #ef4444;
+  border-color: #ef4444;
 }
 
 /* Login page - premium AIMA style */
@@ -236,6 +252,38 @@
   box-shadow: 0 4px 12px rgba(170, 51, 106, 0.3);
 }
 
+/* Bootstrap: no blue - use theme #E31C79 for all primary */
+.btn-primary,
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--aima-primary) !important;
+  border-color: var(--aima-primary) !important;
+  color: #fff !important;
+}
+.btn-outline-primary {
+  color: var(--aima-primary) !important;
+  border-color: var(--aima-primary) !important;
+}
+.btn-outline-primary:hover {
+  background-color: var(--aima-primary) !important;
+  border-color: var(--aima-primary) !important;
+  color: #fff !important;
+}
+.bg-primary { background-color: var(--aima-primary) !important; }
+.text-primary { color: var(--aima-primary) !important; }
+.border-primary { border-color: var(--aima-primary) !important; }
+.badge.bg-primary { background-color: var(--aima-primary) !important; }
+
+/* White text and icon on primary/aima buttons */
+button[style*="aima-primary"],
+button[style*="E31C79"] {
+  color: #ffffff !important;
+}
+button[style*="aima-primary"] svg,
+button[style*="E31C79"] svg {
+  color: #ffffff !important;
+}
+
 /* Bill Print - 80mm thermal */
 .bill-print-content {
   display: none !important;
@@ -252,6 +300,53 @@
     margin: 0 !important;
     padding: 8px !important;
     background: white !important;
+  }
+  /* Customer detail – print only the card when Print is used on Customers page; show like a document */
+  body.customer-print-mode * { visibility: hidden !important; }
+  body.customer-print-mode .customer-detail-print,
+  body.customer-print-mode .customer-detail-print * { visibility: visible !important; }
+  body.customer-print-mode .customer-detail-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px 24px !important;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  body.customer-print-mode .customer-detail-print .no-print { display: none !important; visibility: hidden !important; }
+  body.customer-print-mode .customer-detail-print .card-header {
+    border-bottom: 1px solid #333 !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 16px !important;
+  }
+  body.customer-print-mode .customer-detail-print .card-header h5 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: #111 !important;
+  }
+  body.customer-print-mode .customer-document-body .form-label {
+    font-weight: 600 !important;
+    color: #333 !important;
+    margin-bottom: 2px !important;
+  }
+  body.customer-print-mode .customer-document-body input.form-control,
+  body.customer-print-mode .customer-document-body .form-control {
+    border: none !important;
+    border-bottom: 1px solid #ddd !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-left: 0 !important;
+    font-size: 14px !important;
+    color: #111 !important;
+  }
+  body.customer-print-mode .customer-document-body h6 {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: #222 !important;
+    margin-top: 16px !important;
   }
 }
 

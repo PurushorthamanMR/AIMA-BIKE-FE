@@ -250,12 +250,60 @@ export async function getCustomersByStatus(
 }
 
 /**
+ * GET /customer/getByDateOfPurchaseWithStatus?dateOfPurchase=YYYY-MM-DD&status=pending|complete|return&pageNumber=1&pageSize=10&isActive=true
+ */
+export async function getCustomersByDateOfPurchaseAndStatus(
+  dateOfPurchase: string,
+  status: string,
+  pageNumber = 1,
+  pageSize = 10,
+  isActive = true
+): Promise<CustomerStatusPageResponse> {
+  const params = new URLSearchParams({
+    dateOfPurchase,
+    status,
+    pageNumber: String(pageNumber),
+    pageSize: String(pageSize),
+    isActive: String(isActive),
+  })
+  const res = await apiGet<CustomerStatusPageResponse>(
+    `/customer/getByDateOfPurchaseWithStatus?${params.toString()}`
+  )
+  if (res.status && res.responseDto) {
+    const data = res.responseDto as CustomerStatusPageResponse
+    return {
+      content: data.content ?? [],
+      totalElements: data.totalElements ?? 0,
+      totalPages: data.totalPages ?? 0,
+      pageNumber: data.pageNumber ?? pageNumber,
+      pageSize: data.pageSize ?? pageSize,
+    }
+  }
+  return {
+    content: [],
+    totalElements: 0,
+    totalPages: 0,
+    pageNumber: 1,
+    pageSize,
+  }
+}
+
+/**
  * POST /customer/approved?customerId=1
  */
 export async function approveCustomer(customerId: number): Promise<{ success: boolean; error?: string }> {
   const res = await apiPost<CustomerDto>(`/customer/approved?customerId=${customerId}`, {})
   if (res.status && res.responseDto) return { success: true }
   return { success: false, error: res.errorDescription || 'Failed to approve customer' }
+}
+
+/**
+ * POST /customer/delivery?customerId=1 - sets dateOfDelivery to today
+ */
+export async function deliveryCustomer(customerId: number): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<CustomerDto>(`/customer/delivery?customerId=${customerId}`, {})
+  if (res.status && res.responseDto) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update delivery' }
 }
 
 /**

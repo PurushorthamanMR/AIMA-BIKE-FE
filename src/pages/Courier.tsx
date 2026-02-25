@@ -2,42 +2,43 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getCouriers, type CourierDto } from '@/lib/courierApi'
+import { getCouriersPage, type CourierDto } from '@/lib/courierApi'
 import ViewIcon from '@/components/icons/ViewIcon'
 import EditIcon from '@/components/icons/EditIcon'
-import { Truck, Search } from 'lucide-react'
+import { Truck } from 'lucide-react'
 
 export default function Courier() {
   const navigate = useNavigate()
   const [couriers, setCouriers] = useState<CourierDto[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize] = useState(10)
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    getCouriers().then((list) => {
-      if (!cancelled) setCouriers(list ?? [])
+    setLoading(true)
+    getCouriersPage(pageNumber, pageSize, {
+      isActive: true,
+      name: searchQuery.trim() || undefined,
+      sentDate: dateFilter.trim() || undefined,
+    }).then((res) => {
+      if (!cancelled) {
+        setCouriers(res.content ?? [])
+        setTotalElements(res.totalElements ?? 0)
+        setTotalPages(res.totalPages ?? 0)
+      }
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [])
+  }, [pageNumber, pageSize, searchQuery, dateFilter])
 
-  const filteredCouriers = couriers.filter((c) => {
-    const q = searchQuery.toLowerCase().trim()
-    if (!q) return true
-    const name = (c.name ?? '').toLowerCase()
-    const customer = (c.customerDto?.name ?? '').toLowerCase()
-    const address = (c.address ?? '').toLowerCase()
-    const contact = String(c.contactNumber ?? '')
-    const receiver = (c.receivername ?? '').toLowerCase()
-    return (
-      name.includes(q) ||
-      customer.includes(q) ||
-      address.includes(q) ||
-      contact.includes(searchQuery) ||
-      receiver.includes(q)
-    )
-  })
+  const goToPage = (p: number) => {
+    if (p >= 1 && p <= totalPages) setPageNumber(p)
+  }
 
   return (
     <div className="container-fluid">
@@ -51,14 +52,29 @@ export default function Courier() {
       </div>
       <div className="card border-0 shadow-sm page-card">
         <div className="card-body">
-          <div className="position-relative mb-3 d-inline-block" style={{ maxWidth: '400px' }}>
-            <Search size={18} className="position-absolute top-50 translate-middle-y" style={{ left: 12, color: 'var(--aima-muted)' }} />
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
             <Input
               placeholder="Search by name, customer, address, contact..."
-              className="form-control"
-              style={{ paddingLeft: 36 }}
+              className="form-control rounded-3 bg-white"
+              style={{
+                border: '1px solid #dee2e6',
+                height: '42px',
+                maxWidth: '320px',
+              }}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setPageNumber(1) }}
+            />
+            <Input
+              type="date"
+              className="form-control rounded-3 bg-white"
+              style={{
+                border: '1px solid #dee2e6',
+                height: '42px',
+                width: '160px',
+              }}
+              value={dateFilter}
+              onChange={(e) => { setDateFilter(e.target.value); setPageNumber(1) }}
+              title="Filter by sent date"
             />
           </div>
           {loading ? (
@@ -78,7 +94,7 @@ export default function Courier() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCouriers.map((courier) => (
+                    {couriers.map((courier) => (
                       <tr key={courier.id}>
                         <td className="fw-medium align-middle">{courier.name ?? '-'}</td>
                         <td className="align-middle">{courier.customerDto?.name ?? '-'}</td>
@@ -100,8 +116,23 @@ export default function Courier() {
                   </tbody>
                 </table>
               </div>
-              {filteredCouriers.length === 0 && (
+              {couriers.length === 0 && !loading && (
                 <p className="text-muted mb-0">No couriers found</p>
+              )}
+              {totalPages > 1 && (
+                <div className="d-flex align-items-center justify-content-between mt-3">
+                  <p className="text-muted small mb-0">
+                    Page {pageNumber} of {totalPages} ({totalElements} total)
+                  </p>
+                  <div className="d-flex gap-1">
+                    <Button type="button" variant="outline" size="sm" onClick={() => goToPage(pageNumber - 1)} disabled={pageNumber <= 1}>
+                      Previous
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => goToPage(pageNumber + 1)} disabled={pageNumber >= totalPages}>
+                      Next
+                    </Button>
+                  </div>
+                </div>
               )}
             </>
           )}

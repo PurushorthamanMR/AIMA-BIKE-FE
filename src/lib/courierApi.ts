@@ -85,6 +85,49 @@ export async function getCouriers(): Promise<CourierDto[]> {
   return []
 }
 
+/** Get couriers by sent date. Pass sentDate (YYYY-MM-DD) or empty string for all. */
+export async function getCouriersBySentDate(sentDate?: string): Promise<CourierDto[]> {
+  const q = sentDate?.trim() ? `sentDate=${encodeURIComponent(sentDate.trim())}` : 'sentDate='
+  const res = await apiGet<CourierDto[]>(`/courier/getBySentDate?${q}`)
+  if (res.status && res.responseDto) {
+    const data = res.responseDto
+    return Array.isArray(data) ? data : []
+  }
+  return []
+}
+
+export interface CourierPageResponse {
+  content: CourierDto[]
+  totalElements: number
+  totalPages: number
+  pageNumber: number
+  pageSize: number
+}
+
+/** Get couriers with pagination - GET /courier/getAllPage */
+export async function getCouriersPage(
+  pageNumber = 1,
+  pageSize = 10,
+  params?: { isActive?: boolean; name?: string; sentDate?: string }
+): Promise<CourierPageResponse> {
+  let url = `/courier/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
+  if (params?.isActive !== undefined) url += `&isActive=${params.isActive}`
+  if (params?.name) url += `&name=${encodeURIComponent(params.name)}`
+  if (params?.sentDate) url += `&sentDate=${encodeURIComponent(params.sentDate)}`
+  const res = await apiGet<CourierPageResponse>(url)
+  if (res.status && res.responseDto) {
+    const d = res.responseDto
+    return {
+      content: d.content ?? [],
+      totalElements: d.totalElements ?? 0,
+      totalPages: d.totalPages ?? 0,
+      pageNumber: d.pageNumber ?? pageNumber,
+      pageSize: d.pageSize ?? pageSize,
+    }
+  }
+  return { content: [], totalElements: 0, totalPages: 0, pageNumber, pageSize }
+}
+
 export async function getCouriersByCategoryId(categoryId: number): Promise<CourierDto[]> {
   const res = await apiGet<CourierDto[]>(`/courier/getByCategoryId?categoryId=${categoryId}`)
   if (res.status && res.responseDto) {

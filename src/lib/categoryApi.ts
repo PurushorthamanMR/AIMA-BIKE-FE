@@ -30,6 +30,15 @@ export async function getCategoriesPage(
   return []
 }
 
+export async function getCategoriesByName(name: string): Promise<CategoryDto[]> {
+  const trimmed = (name ?? '').trim()
+  const params = new URLSearchParams()
+  if (trimmed) params.set('name', trimmed)
+  const res: ApiResponse<CategoryDto[]> = await apiGet<CategoryDto[]>(`/category/getByName?${params.toString()}`)
+  if (res.status && Array.isArray(res.responseDto)) return res.responseDto
+  return []
+}
+
 export async function saveCategory(body: { name: string; isActive?: boolean }): Promise<{ success: boolean; data?: CategoryDto; error?: string }> {
   const res = await apiPost<CategoryDto>('/category/save', body)
   if (res.status && res.responseDto) return { success: true, data: res.responseDto }

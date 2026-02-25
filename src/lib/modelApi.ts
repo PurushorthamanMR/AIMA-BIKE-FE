@@ -1,4 +1,4 @@
-import { apiGet, apiPost, ApiResponse } from './api'
+import { apiGet, apiPost, apiPut, ApiResponse } from './api'
 
 export interface ModelDto {
   id: number
@@ -19,15 +19,25 @@ export interface ModelPageResponse {
 export async function getModelsPage(
   pageNumber = 1,
   pageSize = 100,
-  status = true,
+  status?: boolean,
   categoryId?: number
 ): Promise<ModelDto[]> {
-  let url = `/model/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}&status=${status}`
+  let url = `/model/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
+  if (status !== undefined && status !== null) url += `&status=${status}`
   if (categoryId != null) url += `&categoryId=${categoryId}`
   const res: ApiResponse<ModelPageResponse> = await apiGet<ModelPageResponse>(url)
   if (res.status && res.responseDto?.content) {
     return res.responseDto.content
   }
+  return []
+}
+
+export async function getModelsByName(name: string): Promise<ModelDto[]> {
+  const trimmed = (name ?? '').trim()
+  const params = new URLSearchParams()
+  if (trimmed) params.set('name', trimmed)
+  const res: ApiResponse<ModelDto[]> = await apiGet<ModelDto[]>(`/model/getByName?${params.toString()}`)
+  if (res.status && Array.isArray(res.responseDto)) return res.responseDto
   return []
 }
 
@@ -62,4 +72,10 @@ export async function updateModel(data: {
   const res = await apiPost<ModelDto>('/model/update', data)
   if (res.status && res.responseDto) return { success: true }
   return { success: false, error: res.errorDescription || 'Failed to update model' }
+}
+
+export async function updateModelStatus(modelId: number, status: boolean): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPut<ModelDto>(`/model/updateStatus?modelId=${modelId}&status=${status}`)
+  if (res.status) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to update status' }
 }

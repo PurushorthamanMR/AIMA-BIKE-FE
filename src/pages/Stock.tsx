@@ -4,24 +4,32 @@ import { Input } from '@/components/ui/input'
 import { getStocksPage, type StockDto } from '@/lib/stockApi'
 import { Link } from 'react-router-dom'
 import EditIcon from '@/components/icons/EditIcon'
-import { Package } from 'lucide-react'
+import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50]
 
 export default function Stock() {
   const [stocks, setStocks] = useState<StockDto[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   const load = () => {
     setLoading(true)
-    getStocksPage(1, 500).then((list) => {
-      setStocks(list ?? [])
+    getStocksPage(pageNumber, pageSize).then((res) => {
+      setStocks(res.content ?? [])
+      setTotalElements(res.totalElements ?? 0)
+      setTotalPages(res.totalPages ?? 0)
       setLoading(false)
     })
   }
 
   useEffect(() => {
     load()
-  }, [])
+  }, [pageNumber, pageSize])
 
   const filteredStocks = stocks.filter((s) => {
     const q = searchQuery.toLowerCase().trim()
@@ -90,7 +98,48 @@ export default function Stock() {
                   </tbody>
                 </table>
               </div>
-              {filteredStocks.length === 0 && <p className="text-muted mb-0">No stock found</p>}
+              {filteredStocks.length === 0 && !loading && <p className="text-muted mb-0">No stock found</p>}
+              {totalPages > 0 && (
+                <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3 pt-2 border-top">
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="small text-muted">
+                      Page {pageNumber} of {totalPages} ({totalElements} total)
+                    </span>
+                    <select
+                      className="form-select form-select-sm"
+                      style={{ width: 'auto' }}
+                      value={pageSize}
+                      onChange={(e) => { setPageSize(Number(e.target.value)); setPageNumber(1) }}
+                    >
+                      {PAGE_SIZE_OPTIONS.map((n) => (
+                        <option key={n} value={n}>{n} per page</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="d-flex align-items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                      disabled={pageNumber <= 1}
+                    >
+                      <ChevronLeft size={18} />
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
+                      disabled={pageNumber >= totalPages}
+                    >
+                      Next
+                      <ChevronRight size={18} />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -101,7 +101,7 @@ export default function DealerInvoice() {
           return {
             modelId: it.modelId ?? 0,
             quantity: it.quantity ?? 1,
-            color: it.color ?? '',
+            color: (it.color ?? '').toUpperCase(),
             itemCode: code,
             chassisNumber: it.chassisNumber ?? '',
             motorNumber: it.motorNumber ?? '',
@@ -128,7 +128,7 @@ export default function DealerInvoice() {
   const mapItemsForApi = (validItems: FormItem[]) =>
     validItems.map((it) => {
       const code = (it.itemCode ?? '').trim()
-      const colorFull = (it.color ?? '').trim()
+      const colorFull = (it.color ?? '').trim().toUpperCase()
       const colorShort = colorFull.length > 5 ? colorFull.substring(0, 5) : colorFull
       const itemCodeCombined = code && colorShort ? `${code}-${colorShort}` : code || undefined
       return {
@@ -265,7 +265,7 @@ export default function DealerInvoice() {
                 </div>
                 <div className="col-md-2">
                   <label className="form-label small">Color</label>
-                  <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value })} placeholder="Color (max 5 chars used in code)" className="form-control form-control-sm" />
+                  <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value.toUpperCase() })} placeholder="Color (saved as UPPERCASE)" className="form-control form-control-sm" />
                 </div>
                 <div className="col-md-2">
                   <label className="form-label small">Item Code</label>
@@ -295,7 +295,7 @@ export default function DealerInvoice() {
             <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null) }}>
               Cancel
             </Button>
-            <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+            <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
               {editingId ? 'Update Dealer' : 'Save Dealer'}
             </Button>
           </div>

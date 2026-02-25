@@ -116,7 +116,7 @@ const emptyForm: CustomerFormData = {
   registrationFee: '',
   registrationFeePaymentDate: '',
   advancePaymentAmount: '',
-  advancePaymentDate: '',
+  advancePaymentDate: new Date().toISOString().split('T')[0],
   balancePaymentAmount: '',
   balancePaymentDate: '',
   paymentType: '',
@@ -151,6 +151,7 @@ export default function POS() {
   const [courierForm, setCourierForm] = useState({ name: '', contactNumber: '', address: '', sentDate: new Date().toISOString().split('T')[0], customerId: 0 })
   const [courierSaveSuccess, setCourierSaveSuccess] = useState(false)
   const [courierSaveError, setCourierSaveError] = useState('')
+  const [hoveredColorKey, setHoveredColorKey] = useState<string | null>(null)
 
   const partsProducts = MOCK_PRODUCTS.filter((p) => p.category === 'parts' || p.category === 'accessory')
 
@@ -180,7 +181,7 @@ export default function POS() {
   const handleCategoryClick = async (cat: CategoryDto) => {
     const name = (cat.name || '').toLowerCase()
     if (name === 'parts') {
-      setStep('parts')
+      await Swal.fire({ title: 'Coming soon', text: 'Parts & Accessories will be available soon.', icon: 'info' })
       return
     }
     if (name.includes('service')) {
@@ -492,7 +493,7 @@ export default function POS() {
         </div>
       )}
 
-      {/* Step 2b: Colors (Stocks) from backend */}
+      {/* Step 2b: Colors (Stocks) from backend - grouped by color, hover shows individual stocks */}
       {step === 'bike-colors' && selectedModel && (
         <>
           <h4 className="mb-2">{selectedModel.name} - Select Color</h4>
@@ -500,37 +501,108 @@ export default function POS() {
             <p className="text-muted">Loading...</p>
           ) : stocks.length === 0 ? (
             <p className="text-muted">No stock/colors found. Add stock in backend for this model.</p>
-          ) : (
-            <div className="row g-3">
-              {stocks.map((stock) => {
-                const qty = stock.quantity ?? 0
-                const colorName = stock.color || stock.name || '-'
-                const colorHex = colorName.toLowerCase().includes('black') ? '#333' : colorName.toLowerCase().includes('red') ? '#c00' : colorName.toLowerCase().includes('blue') ? '#06c' : colorName.toLowerCase().includes('white') ? '#eee' : '#999'
-                const isLightBg = ['#eee', '#fff'].includes(colorHex) || colorHex.includes('white')
-                return (
-                  <div key={stock.id} className="col-md-3 col-lg-2">
-                    <div
-                      className={`card pos-color-card cursor-pointer ${qty === 0 ? 'opacity-50' : ''}`}
-                      onClick={() => handleStockClick(stock)}
-                      style={{ borderColor: selectedStock?.id === stock.id ? '#AA336A' : undefined, borderWidth: selectedStock?.id === stock.id ? 3 : 1 }}
-                    >
-                      <div className="card-body text-center py-3">
+          ) : (() => {
+            const withQty = stocks.filter((s) => (s.quantity ?? 0) > 0)
+            if (withQty.length === 0) {
+              return <p className="text-muted">No stock available. All items have quantity 0.</p>
+            }
+            const colorKey = (s: StockDto) => (s.color || '-').trim().toLowerCase()
+            const grouped = withQty.reduce<Record<string, StockDto[]>>((acc, s) => {
+              const key = colorKey(s)
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            const getColorHex = (name: string): string => {
+              const n = (name || '').toLowerCase().trim()
+              if (n.includes('black')) return '#333333'
+              if (n.includes('red')) return '#c00'
+              if (n.includes('green')) return '#22a722'
+              if (n.includes('blue') || n.includes('seablue') || n.includes('sea blue')) return '#0d6efd'
+              if (n.includes('white')) return '#f0f0f0'
+              if (n.includes('grey') || n.includes('gray')) return '#6c757d'
+              if (n.includes('yellow')) return '#ffc107'
+              if (n.includes('orange')) return '#fd7e14'
+              if (n.includes('gold')) return '#d4a853'
+              if (n.includes('silver')) return '#c0c0c0'
+              if (n.includes('brown')) return '#8b4513'
+              if (n.includes('pink')) return '#e83e8c'
+              return '#999'
+            }
+            const hoveredStocks = hoveredColorKey ? (grouped[hoveredColorKey] ?? []).filter((s) => (s.quantity ?? 0) > 0) : []
+            return (
+              <div onMouseLeave={() => setHoveredColorKey(null)}>
+                <div className="row g-3">
+                  {Object.entries(grouped).map(([key, colorStocks]) => {
+                    const totalQty = colorStocks.reduce((sum, s) => sum + (s.quantity ?? 0), 0)
+                    const colorName = colorStocks[0]?.color || '-'
+                    const colorHex = getColorHex(colorName)
+                    const lightHexes = ['#f0f0f0', '#eee', '#fff', '#ffc107', '#c0c0c0', '#d4a853']
+                    const isLightBg = lightHexes.includes(colorHex.toLowerCase())
+                    const hasSingle = colorStocks.length === 1 && totalQty > 0
+                    const availableStocks = colorStocks.filter((s) => (s.quantity ?? 0) > 0)
+                    return (
+                      <div
+                        key={key}
+                        className="col-md-3 col-lg-2"
+                        onMouseEnter={() => availableStocks.length > 0 && setHoveredColorKey(key)}
+                      >
                         <div
-                          className="rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center fw-bold small"
-                          style={{ width: 40, height: 40, backgroundColor: colorHex, color: isLightBg ? '#333' : '#fff' }}
+                          className={`card pos-color-card cursor-pointer ${totalQty === 0 ? 'opacity-50' : ''}`}
+                          onClick={() => hasSingle && availableStocks[0] && handleStockClick(availableStocks[0])}
+                          style={{ borderColor: selectedStock && colorStocks.some((s) => s.id === selectedStock.id) ? 'var(--aima-primary)' : undefined, borderWidth: selectedStock && colorStocks.some((s) => s.id === selectedStock.id) ? 3 : 1 }}
                         >
-                          {qty}
+                          <div className="card-body text-center py-3">
+                            <div
+                              className="rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center fw-bold small"
+                              style={{ width: 40, height: 40, backgroundColor: colorHex, color: isLightBg ? '#333' : '#fff' }}
+                            >
+                              {totalQty}
+                            </div>
+                            <h6 className="mb-0">{colorName}</h6>
+                          </div>
                         </div>
-                        <h6 className="mb-0">{colorName}</h6>
                       </div>
+                    )
+                  })}
+                </div>
+                {hoveredColorKey && hoveredStocks.length > 0 && (
+                  <div className="w-100 mt-3 p-3 rounded border bg-white shadow-sm" style={{ width: '100%' }}>
+                    <div
+                      className="d-grid gap-3"
+                      style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
+                    >
+                      {hoveredStocks.map((stock) => (
+                        <div
+                          key={stock.id}
+                          className="card cursor-pointer border"
+                          onClick={() => handleStockClick(stock)}
+                        >
+                          <div className="card-body p-2 text-center">
+                            <div className="mb-2 rounded overflow-hidden bg-light d-flex align-items-center justify-content-center" style={{ height: 140 }}>
+                              <ModelImage
+                                imageUrl={stock.modelDto?.imageUrl}
+                                alt={stock.modelDto?.name ?? ''}
+                                className="w-100 h-100 object-fit-cover"
+                                style={{ objectFit: 'cover' }}
+                              />
+                            </div>
+                            <div className="small text-start">
+                              <div className="d-flex justify-content-between gap-1"><span className="text-muted">ItemCode</span><span className="text-truncate" title={stock.itemCode ?? ''}>{stock.itemCode || '-'}</span></div>
+                              <div className="d-flex justify-content-between gap-1"><span className="text-muted">ChassisNo</span><span className="text-truncate" title={stock.chassisNumber ?? ''}>{stock.chassisNumber || '-'}</span></div>
+                              <div className="d-flex justify-content-between gap-1"><span className="text-muted">MotorNo</span><span className="text-truncate" title={stock.motorNumber ?? ''}>{stock.motorNumber || '-'}</span></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          )}
+                )}
+              </div>
+            )
+          })()}
           <div className="d-flex justify-content-end mt-4">
-            <Button variant="outline" onClick={() => { setStep('bike-models'); setStocks([]) }}>
+            <Button variant="outline" onClick={() => { setStep('bike-models'); setStocks([]); setHoveredColorKey(null) }}>
               <ArrowLeft size={18} className="me-1" />
               Back
             </Button>
@@ -573,13 +645,11 @@ export default function POS() {
                     <div className="col-md-4"><label className="form-label">Colour of Vehicle</label><Input value={formData.colourOfVehicle} readOnly className="form-control bg-light" /></div>
                     <div className="col-md-4"><label className="form-label">Date of Purchase</label><Input type="date" value={formData.dateOfPurchase} onChange={(e) => setFormData({ ...formData, dateOfPurchase: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">AIMA CARE Loyalty Card No</label><Input value={formData.aimaCareLoyaltyCardNo} onChange={(e) => setFormData({ ...formData, aimaCareLoyaltyCardNo: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">Date of Delivery to Customer</label><Input type="date" value={formData.dateOfDeliveryToCustomer} onChange={(e) => setFormData({ ...formData, dateOfDeliveryToCustomer: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Selling Price</label><Input type="number" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })} required className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Registration Fee</label><Input type="number" value={formData.registrationFee} onChange={(e) => setFormData({ ...formData, registrationFee: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Advance Payment Amount</label><Input type="number" value={formData.advancePaymentAmount} onChange={(e) => setFormData({ ...formData, advancePaymentAmount: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Advance Payment Date</label><Input type="date" value={formData.advancePaymentDate} onChange={(e) => setFormData({ ...formData, advancePaymentDate: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Amount of Balance Payment</label><Input type="number" value={formData.balancePaymentAmount} readOnly className="form-control bg-light" /></div>
-                    <div className="col-md-4"><label className="form-label">Balance Payment Date</label><Input type="date" value={formData.balancePaymentDate} onChange={(e) => setFormData({ ...formData, balancePaymentDate: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Type of Payment (Customer)</label><select className="form-select" value={formData.paymentType} onChange={(e) => setFormData({ ...formData, paymentType: e.target.value })}>{payments.length === 0 ? <option value="">Loading...</option> : payments.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                   </div>
                 </div>
@@ -588,7 +658,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
                     Next
                   </Button>
                 </div>
@@ -652,7 +722,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
                     Save
                   </Button>
                 </div>
@@ -679,7 +749,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
                     Save
                   </Button>
                 </div>
@@ -768,7 +838,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button style={{ backgroundColor: '#AA336A' }} onClick={() => navigate('/courier')}>
+                  <Button style={{ backgroundColor: 'var(--aima-primary)' }} onClick={() => navigate('/courier')}>
                     <Truck size={18} className="me-1" />
                     View Courier Page
                   </Button>
@@ -801,7 +871,15 @@ export default function POS() {
                     </div>
                     <div className="col-md-6">
                       <label className="form-label">Contact Number</label>
-                      <Input type="tel" value={courierForm.contactNumber} onChange={(e) => setCourierForm({ ...courierForm, contactNumber: e.target.value })} placeholder="Contact number" className="form-control" />
+                      <Input
+                        type="tel"
+                        className="form-control"
+                        value={courierForm.contactNumber}
+                        onChange={(e) => setCourierForm({ ...courierForm, contactNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        onKeyDown={(e) => { if (!/^\d$/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) e.preventDefault() }}
+                        placeholder="10 numbers only"
+                        maxLength={10}
+                      />
                     </div>
                     <div className="col-md-6">
                       <label className="form-label">Sent Date</label>
@@ -818,7 +896,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button type="submit" style={{ backgroundColor: '#AA336A' }}>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
                     Save Courier
                   </Button>
                 </div>

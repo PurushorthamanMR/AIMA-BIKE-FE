@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Mail, Lock } from 'lucide-react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -34,9 +36,9 @@ export default function Login() {
           <div className="d-flex justify-content-center mb-3">
             {!logoError ? (
               <img
-                src="/images_logos/Logo.png"
+                src="/images_logos/logo.jpg"
                 alt="AIMA Logo"
-                style={{ maxHeight: '70px', objectFit: 'contain' }}
+                style={{ maxHeight: '45px', objectFit: 'contain' }}
                 onError={() => setLogoError(true)}
               />
             ) : (
@@ -86,24 +88,19 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  className="position-absolute top-50 inset-e-0 translate-middle-y bg-transparent border-0 p-2"
+                  className="position-absolute top-50 translate-middle-y bg-transparent border-0 p-2"
                   style={{ right: '4px' }}
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  <img
-                    src={showPassword ? '/images_logos/eye-password-hide.svg' : '/images_logos/password-eye.svg'}
-                    alt={showPassword ? 'Hide' : 'Show'}
-                    width={24}
-                    height={24}
-                  />
+                  <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} className="text-muted" style={{ fontSize: '1.1rem' }} />
                 </button>
               </div>
               <div className="text-end mb-3">
                 <a
                   href="#"
                   className="text-decoration-none"
-                  style={{ color: '#AA336A', fontSize: '14px' }}
+                  style={{ color: 'var(--aima-primary)', fontSize: '14px' }}
                   onClick={(e) => e.preventDefault()}
                 >
                   Forgot Password?

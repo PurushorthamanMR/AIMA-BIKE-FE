@@ -11,7 +11,7 @@ export default function CourierDetail() {
   const navigate = useNavigate()
   const [courier, setCourier] = useState<CourierDto | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showReceiveModal, setShowReceiveModal] = useState(false)
+  const [showReceiveForm, setShowReceiveForm] = useState(false)
   const [receiveSaving, setReceiveSaving] = useState(false)
   const [receiveForm, setReceiveForm] = useState({
     receivedDate: new Date().toISOString().split('T')[0],
@@ -39,14 +39,16 @@ export default function CourierDetail() {
     return () => { cancelled = true }
   }, [id])
 
-  const openReceiveModal = () => {
+  const openReceiveForm = () => {
     setReceiveForm({
       receivedDate: courier?.receivedDate ?? new Date().toISOString().split('T')[0],
       receivername: courier?.receivername ?? '',
       nic: courier?.nic ?? '',
     })
-    setShowReceiveModal(true)
+    setShowReceiveForm(true)
   }
+
+  const closeReceiveForm = () => setShowReceiveForm(false)
 
   const handleReceiveSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,7 +64,7 @@ export default function CourierDetail() {
     setReceiveSaving(false)
     if (result.success) {
       await Swal.fire({ icon: 'success', title: 'Success', text: 'Courier marked as received.' })
-      setShowReceiveModal(false)
+      setShowReceiveForm(false)
       fetchCourier()
     } else {
       await Swal.fire({ icon: 'error', title: 'Error', text: result.error ?? 'Failed to mark as received' })
@@ -71,6 +73,11 @@ export default function CourierDetail() {
 
   if (loading) return <p className="text-muted">Loading courier...</p>
   if (!courier) return <p className="text-muted">Courier not found.</p>
+
+  const hasReceivedData = (courier.receivedDate && String(courier.receivedDate).trim() !== '') ||
+    (courier.receivername && String(courier.receivername).trim() !== '') ||
+    (courier.nic && String(courier.nic).trim() !== '')
+  const receiveEndAccessible = !hasReceivedData
 
   return (
     <div className="container-fluid">
@@ -86,12 +93,46 @@ export default function CourierDetail() {
             <ArrowLeft size={18} className="me-1" />
             Back
           </Button>
-          <Button style={{ backgroundColor: 'var(--aima-primary)' }} onClick={openReceiveModal}>
-            <PackageCheck size={18} className="me-1" />
-            Receive End
-          </Button>
+          {!showReceiveForm && receiveEndAccessible && (
+            <Button style={{ backgroundColor: 'var(--aima-primary)' }} onClick={openReceiveForm}>
+              <PackageCheck size={18} className="me-1" />
+              Receive End
+            </Button>
+          )}
         </div>
       </div>
+
+      {showReceiveForm && (
+        <div className="card mb-4">
+          <div className="card-body">
+            <h5 className="card-title mb-3">Receive End</h5>
+            <p className="text-muted small mb-3">Mark courier as received.</p>
+            <form onSubmit={handleReceiveSubmit}>
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <label className="form-label">Received Date</label>
+                  <Input type="date" className="form-control" value={receiveForm.receivedDate} onChange={(e) => setReceiveForm({ ...receiveForm, receivedDate: e.target.value })} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Receiver Name</label>
+                  <Input className="form-control" value={receiveForm.receivername} onChange={(e) => setReceiveForm({ ...receiveForm, receivername: e.target.value })} placeholder="Receiver name" />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Receiver NIC</label>
+                  <Input className="form-control" value={receiveForm.nic} onChange={(e) => setReceiveForm({ ...receiveForm, nic: e.target.value })} placeholder="NIC number" />
+                </div>
+                <div className="col-12 d-flex align-items-end gap-2 pt-1">
+                  <Button type="button" variant="outline" onClick={closeReceiveForm}>Cancel</Button>
+                  <Button type="submit" disabled={receiveSaving} style={{ backgroundColor: 'var(--aima-primary)' }}>
+                    {receiveSaving ? 'Saving...' : 'Mark Received'}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-body">
           <h5 className="card-title mb-4">Courier - {courier.name}</h5>
@@ -109,47 +150,6 @@ export default function CourierDetail() {
           </div>
         </div>
       </div>
-
-      {/* Receive End Modal */}
-      {showReceiveModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowReceiveModal(false)}>
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
-              <div className="modal-header border-0 pb-0">
-                <h2 className="modal-title mb-0">Receive End</h2>
-                <button type="button" className="btn-close" onClick={() => setShowReceiveModal(false)} aria-label="Close" />
-              </div>
-              <div className="modal-body pt-2">
-                <p className="text-muted mb-4">Mark courier as received. Uses POST /courier/received API.</p>
-                <form onSubmit={handleReceiveSubmit}>
-                  <div className="row g-2 mb-3">
-                    <div className="col-12">
-                      <label className="form-label">Received Date</label>
-                      <Input type="date" className="form-control" value={receiveForm.receivedDate} onChange={(e) => setReceiveForm({ ...receiveForm, receivedDate: e.target.value })} />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label">Receiver Name</label>
-                      <Input className="form-control" value={receiveForm.receivername} onChange={(e) => setReceiveForm({ ...receiveForm, receivername: e.target.value })} placeholder="Receiver name" />
-                    </div>
-                    <div className="col-12">
-                      <label className="form-label">Receiver NIC</label>
-                      <Input className="form-control" value={receiveForm.nic} onChange={(e) => setReceiveForm({ ...receiveForm, nic: e.target.value })} placeholder="NIC number" />
-                    </div>
-                  </div>
-                  <div className="d-flex gap-2 mt-4">
-                    <Button type="submit" disabled={receiveSaving} style={{ backgroundColor: 'var(--aima-primary)' }}>
-                      {receiveSaving ? 'Saving...' : 'Mark Received'}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => setShowReceiveModal(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

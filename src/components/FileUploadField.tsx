@@ -82,6 +82,8 @@ export function FileUploadField({ label, value, onChange, subfolder = 'cash', fi
     setAsyncUrl(null)
   }, [value])
   const displayUrl = syncUrl || asyncUrl || ''
+  /** For img src use only actual URLs (http/data/blob). Paths like upload/... are not valid. */
+  const imagePreviewUrl = value?.startsWith('upload/') ? (asyncUrl || '') : (syncUrl && (syncUrl.startsWith('http') || syncUrl.startsWith('data:')) ? syncUrl : '')
 
   return (
     <div className={className}>
@@ -113,19 +115,45 @@ export function FileUploadField({ label, value, onChange, subfolder = 'cash', fi
             <span>Uploading...</span>
           </div>
         ) : value ? (
-          <div className="d-flex flex-column align-items-center gap-1">
-            <span className="text-success d-flex align-items-center gap-1">
-              <Check size={18} />
-              Uploaded
-            </span>
-            {displayUrl && (
-              <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="small text-primary" onClick={(e) => e.stopPropagation()}>
-                View file
-              </a>
+          <div className="d-flex flex-column align-items-center gap-2">
+            {accept?.includes('image') ? (
+              imagePreviewUrl ? (
+                <div className="position-relative" onClick={(e) => e.stopPropagation()}>
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Preview"
+                    className="rounded border"
+                    style={{ maxHeight: 140, maxWidth: '100%', objectFit: 'contain' }}
+                  />
+                  <button type="button" className="btn btn-link btn-sm text-danger p-0 position-absolute top-0 end-0 mt-1 me-1" onClick={handleClear} title="Clear">
+                    Clear
+                  </button>
+                </div>
+              ) : value?.startsWith('upload/') ? (
+                <div className="d-flex align-items-center gap-2 text-muted">
+                  <Loader2 size={20} className="animate-spin" />
+                  <span className="small">Loading preview...</span>
+                  <button type="button" className="btn btn-link btn-sm text-danger p-0" onClick={handleClear}>Clear</button>
+                </div>
+              ) : (
+                <span className="text-muted small">Preview not available</span>
+              )
+            ) : (
+              <>
+                <span className="text-success d-flex align-items-center gap-1">
+                  <Check size={18} />
+                  Uploaded
+                </span>
+                {displayUrl && (
+                  <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="small text-primary" onClick={(e) => e.stopPropagation()}>
+                    View file
+                  </a>
+                )}
+                <button type="button" className="btn btn-link btn-sm text-danger p-0 mt-1" onClick={handleClear}>
+                  Clear
+                </button>
+              </>
             )}
-            <button type="button" className="btn btn-link btn-sm text-danger p-0 mt-1" onClick={handleClear}>
-              Clear
-            </button>
           </div>
         ) : (
           <div className="d-flex flex-column align-items-center gap-1 text-muted">

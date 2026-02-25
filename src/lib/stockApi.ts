@@ -9,7 +9,8 @@ export interface StockDto {
   motorNumber?: string
   color?: string
   quantity?: number
-  modelDto?: { id: number; name: string; categoryDto?: { id: number; name: string } }
+  sellingAmount?: number
+  modelDto?: { id: number; name: string; imageUrl?: string; categoryDto?: { id: number; name: string } }
 }
 
 export interface StockPageResponse {
@@ -32,15 +33,15 @@ export async function getStocksByModel(modelId: number): Promise<StockDto[]> {
 }
 
 export async function getStockById(id: number): Promise<StockDto | null> {
-  const list = await getStocksPage(1, 500)
-  return list.find((s) => s.id === id) ?? null
+  const result = await getStocksPage(1, 500)
+  return result.content.find((s) => s.id === id) ?? null
 }
 
 export async function getStocksPage(
   pageNumber = 1,
   pageSize = 100,
   searchParams?: { noteId?: number; modelId?: number; color?: string; itemCode?: string }
-): Promise<StockDto[]> {
+): Promise<StockPageResponse> {
   let url = `/stock/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
   if (searchParams?.noteId != null) url += `&noteId=${searchParams.noteId}`
   if (searchParams?.modelId != null) url += `&modelId=${searchParams.modelId}`
@@ -48,9 +49,16 @@ export async function getStocksPage(
   if (searchParams?.itemCode) url += `&itemCode=${encodeURIComponent(searchParams.itemCode)}`
   const res = await apiGet<StockPageResponse>(url)
   if (res.status && res.responseDto) {
-    return res.responseDto.content ?? []
+    const d = res.responseDto
+    return {
+      content: d.content ?? [],
+      totalElements: d.totalElements ?? 0,
+      totalPages: d.totalPages ?? 0,
+      pageNumber: d.pageNumber ?? pageNumber,
+      pageSize: d.pageSize ?? pageSize,
+    }
   }
-  return []
+  return { content: [], totalElements: 0, totalPages: 0, pageNumber, pageSize }
 }
 
 export async function saveStock(data: {
