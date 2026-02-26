@@ -22,6 +22,7 @@ export interface TransferDto {
   contactNumber?: number
   address: string
   deliveryDetails: string
+  nic?: string | null
   isActive?: boolean
   transferList?: TransferListLineDto[]
   userDto?: { id: number; firstName?: string; lastName?: string; emailAddress?: string }
@@ -32,6 +33,7 @@ export async function saveTransfer(data: {
   companyName: string
   address: string
   deliveryDetails: string
+  nic?: string | null
   transferList: Array<{ stockId: number; quantity?: number }>
 }): Promise<{ success: boolean; error?: string }> {
   const res = await apiPost<TransferDto>('/transfer/save', data)
@@ -51,11 +53,12 @@ export interface TransferPageResponse {
 export async function getTransfersPage(
   pageNumber = 1,
   pageSize = 10,
-  params?: { isActive?: boolean; companyName?: string }
+  params?: { isActive?: boolean; companyName?: string; nic?: string }
 ): Promise<TransferPageResponse> {
   let url = `/transfer/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
   if (params?.isActive !== undefined) url += `&isActive=${params.isActive}`
   if (params?.companyName) url += `&companyName=${encodeURIComponent(params.companyName)}`
+  if (params?.nic) url += `&nic=${encodeURIComponent(params.nic)}`
   const res = await apiGet<TransferPageResponse>(url)
   if (res.status && res.responseDto) {
     const d = res.responseDto
@@ -70,13 +73,14 @@ export async function getTransfersPage(
   return { content: [], totalElements: 0, totalPages: 0, pageNumber, pageSize }
 }
 
-/** Update transfer - POST /transfer/update (header only: companyName, address, deliveryDetails, contactNumber, userId) */
+/** Update transfer - POST /transfer/update (header only: companyName, address, deliveryDetails, contactNumber, nic, userId) */
 export async function updateTransfer(data: {
   id: number
   companyName?: string
   address?: string
   deliveryDetails?: string
   contactNumber?: number
+  nic?: string | null
   userId?: number
   isActive?: boolean
 }): Promise<{ success: boolean; error?: string }> {
@@ -104,6 +108,16 @@ export async function getTransfers(): Promise<TransferDto[]> {
 
 export async function getTransfersByUserId(userId: number): Promise<TransferDto[]> {
   const res = await apiGet<TransferDto[]>(`/transfer/getByUserId?userId=${userId}`)
+  if (res.status && res.responseDto) {
+    const data = res.responseDto
+    return Array.isArray(data) ? data : []
+  }
+  return []
+}
+
+/** Get transfers by NIC (partial match) */
+export async function getTransfersByNic(nic: string): Promise<TransferDto[]> {
+  const res = await apiGet<TransferDto[]>(`/transfer/getByNic?nic=${encodeURIComponent(nic)}`)
   if (res.status && res.responseDto) {
     const data = res.responseDto
     return Array.isArray(data) ? data : []

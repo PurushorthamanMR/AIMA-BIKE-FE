@@ -19,6 +19,7 @@ const emptyForm = {
   contactNumber: '',
   address: '',
   deliveryDetails: '',
+  nic: '',
   transferList: [{ stockId: 0, quantity: 1 }] as FormLine[],
 }
 
@@ -34,6 +35,7 @@ export default function Transfer() {
   const [loadingStocks, setLoadingStocks] = useState(true)
   const [form, setForm] = useState(emptyForm)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchNic, setSearchNic] = useState('')
   const [viewTransfer, setViewTransfer] = useState<TransferDto | null>(null)
   const [editingTransferId, setEditingTransferId] = useState<number | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -41,9 +43,15 @@ export default function Transfer() {
   const [showForm, setShowForm] = useState(false)
   const [loadingView, setLoadingView] = useState(false)
 
+  const searchParams = {
+    isActive: true,
+    companyName: searchQuery.trim() || undefined,
+    nic: searchNic.trim() || undefined,
+  }
+
   const fetchTransfersPage = () => {
     setLoading(true)
-    getTransfersPage(pageNumber, pageSize, { isActive: true, companyName: searchQuery.trim() || undefined }).then((res) => {
+    getTransfersPage(pageNumber, pageSize, searchParams).then((res) => {
       setTransfers(res.content ?? [])
       setTotalElements(res.totalElements ?? 0)
       setTotalPages(res.totalPages ?? 0)
@@ -54,7 +62,7 @@ export default function Transfer() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    getTransfersPage(pageNumber, pageSize, { isActive: true, companyName: searchQuery.trim() || undefined }).then((res) => {
+    getTransfersPage(pageNumber, pageSize, searchParams).then((res) => {
       if (!cancelled) {
         setTransfers(res.content ?? [])
         setTotalElements(res.totalElements ?? 0)
@@ -63,7 +71,7 @@ export default function Transfer() {
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [pageNumber, pageSize, searchQuery])
+  }, [pageNumber, pageSize, searchQuery, searchNic])
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +116,7 @@ export default function Transfer() {
           contactNumber: data.contactNumber != null ? String(data.contactNumber) : '',
           address: data.address ?? '',
           deliveryDetails: data.deliveryDetails ?? '',
+          nic: data.nic ?? '',
           transferList: [],
         })
         setShowForm(true)
@@ -131,6 +140,7 @@ export default function Transfer() {
         address: form.address.trim(),
         deliveryDetails: form.deliveryDetails.trim(),
         contactNumber: parseNum(form.contactNumber),
+        nic: form.nic.trim() || null,
       })
       if (result.success) {
         await Swal.fire({ icon: 'success', title: 'Success', text: 'Transfer updated successfully.' })
@@ -161,6 +171,7 @@ export default function Transfer() {
       companyName: form.companyName.trim(),
       address: form.address.trim(),
       deliveryDetails: form.deliveryDetails.trim(),
+      nic: form.nic.trim() || null,
       transferList: validLines.map((line) => ({ stockId: line.stockId, quantity: 1 })),
     })
     if (result.success) {
@@ -227,10 +238,20 @@ export default function Transfer() {
                 <label className="form-label">deliveryDetails <span className="text-danger">*</span></label>
                 <Input value={form.deliveryDetails} onChange={(e) => setForm({ ...form, deliveryDetails: e.target.value })} placeholder="Delivery instructions/details" required className="form-control" />
               </div>
+              <div className="col-md-6">
+                <label className="form-label">NIC</label>
+                <Input value={form.nic} onChange={(e) => setForm({ ...form, nic: e.target.value })} placeholder="National Identity Card number" className="form-control" />
+              </div>
             </div>
 
             {editingTransferId != null && viewTransfer ? (
               <>
+                {viewTransfer.nic != null && viewTransfer.nic !== '' && (
+                  <div className="mb-2">
+                    <label className="form-label text-muted small">NIC</label>
+                    <Input value={viewTransfer.nic} readOnly className="form-control bg-light" />
+                  </div>
+                )}
                 <h6 className="border-bottom pb-2 mb-2 mt-3">transferList</h6>
                 {(viewTransfer.transferList?.length ?? 0) > 0 ? (
                   <div className="table-responsive">
@@ -318,13 +339,20 @@ export default function Transfer() {
       <div className="card">
         <div className="card-body">
           {loadingView && <p className="text-muted mb-2">Loading transfer details...</p>}
-          <Input
-            placeholder="Search by company, address, stock..."
-            className="mb-3"
-            style={{ maxWidth: '400px' }}
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPageNumber(1) }}
-          />
+          <div className="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            <Input
+              placeholder="Search by company name..."
+              style={{ maxWidth: '240px' }}
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setPageNumber(1) }}
+            />
+            <Input
+              placeholder="Search by NIC..."
+              style={{ maxWidth: '240px' }}
+              value={searchNic}
+              onChange={(e) => { setSearchNic(e.target.value); setPageNumber(1) }}
+            />
+          </div>
           {loading ? (
             <p className="text-muted mb-0">Loading transfers...</p>
           ) : (
@@ -334,6 +362,7 @@ export default function Transfer() {
                   <thead>
                     <tr>
                       <th>Company Name</th>
+                      <th>NIC</th>
                       <th>User ID</th>
                       <th>Action</th>
                     </tr>
@@ -342,6 +371,7 @@ export default function Transfer() {
                     {transfers.map((t) => (
                       <tr key={t.id}>
                         <td className="align-middle">{t.companyName ?? '-'}</td>
+                        <td className="align-middle">{t.nic ?? '-'}</td>
                         <td className="align-middle">{t.userId ?? t.userDto?.id ?? '-'}</td>
                         <td className="align-middle">
                           <div className="d-flex align-items-center gap-1">

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import Login from '@/pages/auth/Login'
+import ResetPassword from '@/pages/auth/ResetPassword'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Dashboard from '@/pages/Dashboard'
 import POS from '@/pages/POS'
@@ -33,6 +34,7 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/"
         element={
