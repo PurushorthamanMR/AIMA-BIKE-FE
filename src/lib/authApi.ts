@@ -34,3 +34,25 @@ export async function resetPassword(token: string, newPassword: string): Promise
   if (res.status) return { success: true }
   return { success: false, error: res.errorDescription || 'Failed to reset password' }
 }
+
+/** Send email verification OTP - POST /auth/send-email-otp */
+export async function sendEmailOtp(emailAddress: string): Promise<{ success: boolean; error?: string }> {
+  const res = await apiPost<{ message?: string }>('/auth/send-email-otp', { emailAddress })
+  if (res.status) return { success: true }
+  return { success: false, error: res.errorDescription || 'Failed to send OTP' }
+}
+
+/** Verify email OTP - POST /auth/verify-email-otp. Returns emailVerificationToken to send when saving user. */
+export async function verifyEmailOtp(
+  emailAddress: string,
+  otp: string
+): Promise<{ success: boolean; emailVerificationToken?: string; error?: string }> {
+  const res = await apiPost<{ success?: boolean; emailVerificationToken?: string }>('/auth/verify-email-otp', {
+    emailAddress,
+    otp,
+  })
+  if (res.status && res.responseDto?.emailVerificationToken) {
+    return { success: true, emailVerificationToken: res.responseDto.emailVerificationToken }
+  }
+  return { success: false, error: res.errorDescription || 'Invalid or expired OTP' }
+}

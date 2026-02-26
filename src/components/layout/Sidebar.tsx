@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth'
 import {
   LayoutDashboard,
   Users,
+  UserCog,
+  User,
   BarChart3,
   Settings,
   ShoppingCart,
@@ -18,17 +20,19 @@ import {
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'staff'] },
+  { path: '/profile', icon: User, label: 'Profile', roles: ['admin', 'manager', 'staff'] },
   { path: '/pos', icon: ShoppingCart, label: 'POS', roles: ['admin', 'manager', 'staff'] },
   { path: '/category', icon: Layers, label: 'Category', roles: ['admin', 'manager', 'staff'] },
   { path: '/bike-models', icon: Bike, label: 'Bike Models', roles: ['admin', 'manager', 'staff'] },
   { path: '/stock', icon: Package, label: 'Stock', roles: ['admin', 'manager', 'staff'] },
   { path: '/customers', icon: Users, label: 'Customers', roles: ['admin', 'manager'] },
+  { path: '/users', icon: UserCog, label: 'User', roles: ['admin', 'manager'] },
   { path: '/payment', icon: CreditCard, label: 'Payment', roles: ['admin', 'manager', 'staff'] },
   { path: '/courier', icon: Truck, label: 'Courier', roles: ['admin', 'manager', 'staff'] },
   { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', roles: ['admin', 'manager', 'staff'] },
   { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', roles: ['admin', 'manager', 'staff'] },
   { path: '/reports', icon: BarChart3, label: 'Reports', roles: ['admin', 'manager'] },
-  { path: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
+  { path: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'manager'] },
 ]
 
 interface SidebarProps {

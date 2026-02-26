@@ -19,6 +19,8 @@ import Category from '@/pages/Category'
 import Payment from '@/pages/Payment'
 import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
+import UserManagement from '@/pages/UserManagement'
+import Profile from '@/pages/Profile'
 import PageNotFound from '@/pages/PageNotFound'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -63,6 +65,8 @@ export function AppRouter() {
         <Route path="payment" element={<Payment />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="users" element={<UserManagement />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

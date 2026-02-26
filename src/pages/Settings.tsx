@@ -1,40 +1,360 @@
-import { Settings as SettingsIcon, Users, Database, Shield } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  getSettingsAllPagination,
+  saveSetting,
+  updateSetting,
+  updateAdminStatus,
+  updateManagerStatus,
+  type SettingDto,
+} from '@/lib/settingsApi'
+import { useAuth } from '@/hooks/useAuth'
+import { Plus, Settings as SettingsIcon, Search } from 'lucide-react'
+import EditIcon from '@/components/icons/EditIcon'
+import Swal from 'sweetalert2'
 
 export default function Settings() {
+  const { user } = useAuth()
+  const isAdmin = user?.role?.toLowerCase() === 'admin'
+  const isManager = user?.role?.toLowerCase() === 'manager'
+
+  const [list, setList] = useState<SettingDto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<SettingDto | null>(null)
+  const [form, setForm] = useState({ name: '', isActiveAdmin: true, isActiveManager: true })
+  const [success, setSuccess] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [searchName, setSearchName] = useState('')
+
+  const load = () => {
+    setLoading(true)
+    setLoadError('')
+    getSettingsAllPagination(1, 500)
+      .then((res) => {
+        setList(res.content ?? [])
+        setLoading(false)
+      })
+      .catch(() => {
+        setList([])
+        setLoading(false)
+        setLoadError('Failed to load settings. Check backend is running.')
+      })
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        name: editing.name ?? '',
+        isActiveAdmin: editing.isActiveAdmin !== false,
+        isActiveManager: editing.isActiveManager !== false,
+      })
+    } else {
+      setForm({ name: '', isActiveAdmin: true, isActiveManager: true })
+    }
+  }, [editing])
+
+  const openAdd = () => {
+    setEditing(null)
+    setForm({ name: '', isActiveAdmin: true, isActiveManager: true })
+    setShowForm(true)
+  }
+
+  const openEdit = (s: SettingDto) => {
+    setEditing(s)
+    setShowForm(true)
+  }
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditing(null)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim()) {
+      await Swal.fire({ icon: 'error', title: 'Validation', text: 'Name is required.' })
+      return
+    }
+    const nameTrimmed = form.name.trim()
+    const nameLower = nameTrimmed.toLowerCase()
+    const isDuplicate = list.some(
+      (s) => (s.name || '').trim().toLowerCase() === nameLower && (editing ? s.id !== editing.id : true)
+    )
+    if (isDuplicate) {
+      await Swal.fire({ icon: 'error', title: 'Duplicate', text: 'A setting with this name already exists.' })
+      return
+    }
+    if (editing) {
+      const res = await updateSetting({
+        id: editing.id,
+        name: nameTrimmed,
+        isActiveAdmin: form.isActiveAdmin,
+        isActiveManager: form.isActiveManager,
+      })
+      if (res.success) {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 2000)
+        closeForm()
+        load()
+        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting updated successfully.' })
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Update failed.' })
+      }
+    } else {
+      const res = await saveSetting({
+        name: nameTrimmed,
+        isActiveAdmin: form.isActiveAdmin,
+        isActiveManager: form.isActiveManager,
+      })
+      if (res.success) {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 2000)
+        closeForm()
+        load()
+        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting added successfully.' })
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Save failed.' })
+      }
+    }
+  }
+
+  const handleToggleAdmin = async (s: SettingDto) => {
+    const next = !(s.isActiveAdmin ?? true)
+    const action = next ? 'enable' : 'disable'
+    const { isConfirmed } = await Swal.fire({
+      title: 'Confirm',
+      text: `Are you sure you want to ${action} admin for "${s.name || 'this setting'}"?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'Cancel',
+    })
+    if (!isConfirmed) return
+    const res = await updateAdminStatus(s.id, next)
+    if (res.success) load()
+    else await Swal.fire({ icon: 'error', title: 'Error', text: res.error })
+  }
+
+  const handleToggleManager = async (s: SettingDto) => {
+    const next = !(s.isActiveManager ?? true)
+    const action = next ? 'enable' : 'disable'
+    const { isConfirmed } = await Swal.fire({
+      title: 'Confirm',
+      text: `Are you sure you want to ${action} manager for "${s.name || 'this setting'}"?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      cancelButtonText: 'Cancel',
+    })
+    if (!isConfirmed) return
+    const res = await updateManagerStatus(s.id, next)
+    if (res.success) load()
+    else await Swal.fire({ icon: 'error', title: 'Error', text: res.error })
+  }
+
+  const filteredList = searchName.trim()
+    ? list.filter((s) => (s.name || '').toLowerCase().includes(searchName.trim().toLowerCase()))
+    : list
+
+  const clearSearch = () => setSearchName('')
+
   return (
     <div className="container-fluid">
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
-          <SettingsIcon size={32} style={{ color: 'var(--aima-primary)' }} />
-        </div>
-        <div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex align-items-center gap-3">
+          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
+            <SettingsIcon size={28} style={{ color: 'var(--aima-primary)' }} />
+          </div>
           <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Settings</h2>
-          <p className="mb-0 small" style={{ color: 'var(--aima-muted)' }}>System configuration</p>
         </div>
+        {isAdmin && !showForm && (
+          <Button onClick={openAdd} style={{ backgroundColor: 'var(--aima-primary)' }}>
+            <Plus size={18} className="me-1" />
+            Add Settings
+          </Button>
+        )}
       </div>
-      <div className="card border-0 shadow-sm page-card">
-        <div className="card-body">
-          <div className="d-flex align-items-center gap-3 mb-3">
-            <Shield size={24} style={{ color: 'var(--aima-primary)' }} />
-            <h5 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>System Settings</h5>
+
+      {isAdmin && showForm && (
+        <div className="card mb-4">
+          <div className="card-body">
+            <h5 className="card-title mb-3">{editing ? 'Edit Setting' : 'Add Setting'}</h5>
+            <form onSubmit={handleSubmit}>
+              <div className="row g-3">
+                <div className="col-md-5">
+                  <label className="form-label">Name *</label>
+                  <Input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Setting name"
+                    required
+                    className="form-control"
+                  />
+                  {form.name.trim() &&
+                    list.some(
+                      (s) =>
+                        (s.name || '').trim().toLowerCase() === form.name.trim().toLowerCase() &&
+                        (editing ? s.id !== editing.id : true)
+                    ) && (
+                      <p className="text-danger small mb-0 mt-1" role="alert">
+                        Already have this setting name
+                      </p>
+                    )}
+                </div>
+                <div className="col-md-2 d-flex align-items-center">
+                  <div className="form-check form-switch">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="form-isActiveAdmin"
+                      checked={form.isActiveAdmin}
+                      onChange={(e) => setForm({ ...form, isActiveAdmin: e.target.checked })}
+                    />
+                    <label className="form-check-label" htmlFor="form-isActiveAdmin">
+                      Admin active
+                    </label>
+                  </div>
+                </div>
+                <div className="col-md-2 d-flex align-items-center">
+                  <div className="form-check form-switch">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="form-isActiveManager"
+                      checked={form.isActiveManager}
+                      onChange={(e) => setForm({ ...form, isActiveManager: e.target.checked })}
+                    />
+                    <label className="form-check-label" htmlFor="form-isActiveManager">
+                      Manager active
+                    </label>
+                  </div>
+                </div>
+                <div className="col-12 d-flex align-items-end gap-2 pt-1">
+                  <Button type="button" variant="outline" onClick={closeForm}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
+                    {editing ? 'Update' : 'Add'} Setting
+                  </Button>
+                </div>
+              </div>
+            </form>
           </div>
-          <p className="text-muted mb-4">Admin-only settings - User management, Database backup, etc.</p>
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="d-flex align-items-center gap-2 p-3 rounded-3" style={{ background: 'var(--aima-surface)', border: '1px solid var(--aima-border)' }}>
-                <Users size={20} style={{ color: 'var(--aima-primary)' }} />
-                <span style={{ color: 'var(--aima-secondary)' }}>User Management</span>
+        </div>
+      )}
+
+      {!showForm && (
+        <div className="card">
+          <div className="card-body">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <h6 className="mb-0 fw-semibold">Settings</h6>
+              <div className="d-flex align-items-center gap-2">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  style={{ maxWidth: 220 }}
+                  placeholder="Search by name..."
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                />
+                <Button type="button" variant="outline" size="sm" title="Search by name">
+                  <Search size={18} />
+                </Button>
+                {searchName.trim() && (
+                  <Button type="button" variant="ghost" size="sm" onClick={clearSearch}>
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="col-md-6">
-              <div className="d-flex align-items-center gap-2 p-3 rounded-3" style={{ background: 'var(--aima-surface)', border: '1px solid var(--aima-border)' }}>
-                <Database size={20} style={{ color: 'var(--aima-primary)' }} />
-                <span style={{ color: 'var(--aima-secondary)' }}>Database Backup</span>
+            {loadError && <div className="alert alert-warning py-2 mb-3">{loadError}</div>}
+            {success && <div className="alert alert-success py-2 mb-3">Saved successfully.</div>}
+            {loading ? (
+              <p className="text-muted mb-0">Loading...</p>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-hover mb-0">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      {isAdmin && <th>Admin active</th>}
+                      <th>Manager active</th>
+                      {isAdmin && (
+                        <th className="text-end">Action</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredList.map((s) => (
+                      <tr key={s.id}>
+                        <td className="fw-medium align-middle">{s.name}</td>
+                        {isAdmin && (
+                          <td className="align-middle">
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`setting-admin-${s.id}`}
+                                checked={s.isActiveAdmin !== false}
+                                onChange={() => handleToggleAdmin(s)}
+                                title={s.isActiveAdmin !== false ? 'Turn off' : 'Turn on'}
+                              />
+                            </div>
+                          </td>
+                        )}
+                        <td className="align-middle">
+                          {isAdmin ? (
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                id={`setting-manager-${s.id}`}
+                                checked={s.isActiveManager !== false}
+                                onChange={() => handleToggleManager(s)}
+                                title={s.isActiveManager !== false ? 'Turn off' : 'Turn on'}
+                              />
+                            </div>
+                          ) : (
+                            <span className={s.isActiveManager !== false ? 'text-success' : 'text-muted'}>
+                              {s.isActiveManager !== false ? 'Active' : 'Inactive'}
+                            </span>
+                          )}
+                        </td>
+                        {isAdmin && (
+                          <td className="text-end align-middle">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="p-1 d-inline-flex align-items-center justify-content-center"
+                              style={{ minHeight: 36 }}
+                              onClick={() => openEdit(s)}
+                              title="Edit"
+                            >
+                              <EditIcon size={18} className="text-dark" style={{ marginTop: 3 }} />
+                            </Button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
+            {!loading && filteredList.length === 0 && (
+              <p className="text-muted mb-0">
+                {searchName.trim() ? 'No settings match your search.' : 'No settings. Click Add Settings to create one.'}
+              </p>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
