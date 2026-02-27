@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { saveDealerConsignmentNote, updateDealerConsignmentNote, getDealerConsignmentNotesPage, getDealerConsignmentNoteById, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
@@ -90,6 +90,42 @@ export default function DealerInvoice() {
     }))
   }
 
+  const contactPersonError = useMemo(() => {
+    const v = form.contactPerson.trim()
+    if (!v) return null
+    if (!/^\d{10}$/.test(v)) return 'Contact person must be exactly 10 digits.'
+    return null
+  }, [form.contactPerson])
+
+  const savedChassisAndMotor = useMemo(() => {
+    const chassisSet = new Set<string>()
+    const motorSet = new Set<string>()
+    notes.forEach((n) => {
+      if (editingId != null && n.id === editingId) return
+      ;(n.items ?? []).forEach((it) => {
+        const c = (it.chassisNumber ?? '').trim().toLowerCase()
+        const m = (it.motorNumber ?? '').trim().toLowerCase()
+        if (c) chassisSet.add(c)
+        if (m) motorSet.add(m)
+      })
+    })
+    return { chassisSet, motorSet }
+  }, [notes, editingId])
+
+  const getItemDuplicateErrors = (idx: number) => {
+    const items = form.items
+    const chassis = (items[idx]?.chassisNumber ?? '').trim().toLowerCase()
+    const motor = (items[idx]?.motorNumber ?? '').trim().toLowerCase()
+    const chassisDupInForm = chassis && items.some((it, i) => i !== idx && (it.chassisNumber ?? '').trim().toLowerCase() === chassis)
+    const motorDupInForm = motor && items.some((it, i) => i !== idx && (it.motorNumber ?? '').trim().toLowerCase() === motor)
+    const chassisDupSaved = chassis && savedChassisAndMotor.chassisSet.has(chassis)
+    const motorDupSaved = motor && savedChassisAndMotor.motorSet.has(motor)
+    return {
+      chassis: chassisDupInForm || chassisDupSaved,
+      motor: motorDupInForm || motorDupSaved,
+    }
+  }
+
   const handleEditClick = async (note: DealerConsignmentNoteDto) => {
     const full = await getDealerConsignmentNoteById(note.id)
     if (!full) return
@@ -141,9 +177,22 @@ export default function DealerInvoice() {
       }
     })
 
+  const hasItemDuplicates = form.items.some((_, idx) => {
+    const d = getItemDuplicateErrors(idx)
+    return d.chassis || d.motor
+  })
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
+    if (contactPersonError) {
+      setSaveError(contactPersonError)
+      return
+    }
+    if (hasItemDuplicates) {
+      setSaveError('Remove duplicate chassis or motor numbers in items.')
+      return
+    }
     const validItems = form.items.filter((it) => it.modelId > 0)
     if (validItems.length === 0) {
       setSaveError('Add at least one item with model.')
@@ -174,10 +223,10 @@ export default function DealerInvoice() {
       await Swal.fire({
         icon: 'success',
         title: editingId ? 'Successfully Updated' : 'Successfully Saved',
-        text: editingId ? 'Dealer invoice updated successfully.' : 'Dealer saved successfully.',
+        text: editingId ? 'Dealer updated successfully.' : 'Dealer saved successfully.',
       })
     } else {
-      setSaveError(result.error || (editingId ? 'Failed to update' : 'Failed to save dealer consignment note'))
+      setSaveError(result.error || (editingId ? 'Failed to update' : 'Failed to save dealer'))
     }
   }
 
@@ -188,12 +237,12 @@ export default function DealerInvoice() {
           <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
             <FileText size={28} style={{ color: 'var(--aima-primary)' }} />
           </div>
-          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Dealer Invoice</h2>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Dealer</h2>
         </div>
         {!showForm && (
           <Button onClick={() => { setShowForm(true); setSaveError(''); setEditingId(null); setForm({ ...emptyForm, items: [{ modelId: 0, quantity: 1 }] }) }} style={{ backgroundColor: 'var(--aima-primary)' }}>
             <Plus size={18} className="me-1" />
-            Add Dealer Invoice
+            Add Dealer
           </Button>
         )}
       </div>
@@ -204,8 +253,8 @@ export default function DealerInvoice() {
         <form onSubmit={handleSubmit}>
           <div className="card-body">
             {saveError && <div className="alert alert-danger py-2 mb-3">{saveError}</div>}
-            {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer consignment note saved successfully.</div>}
-            {editingId && <h6 className="text-muted mb-3">Edit Dealer Invoice</h6>}
+            {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer saved successfully.</div>}
+            {editingId && <h6 className="text-muted mb-3">Edit Dealer</h6>}
             <h6 className="border-bottom pb-2 mb-3">Header</h6>
             <div className="row g-2 mb-4">
               <div className="col-md-6">
@@ -230,7 +279,16 @@ export default function DealerInvoice() {
               </div>
               <div className="col-md-6">
                 <label className="form-label">Contact Person</label>
-                <Input value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Contact" className="form-control" />
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  value={form.contactPerson}
+                  onChange={(e) => setForm({ ...form, contactPerson: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  placeholder="10 digits only"
+                  className="form-control"
+                  maxLength={10}
+                />
+                {contactPersonError && <p className="text-danger small mb-0 mt-1">{contactPersonError}</p>}
               </div>
               <div className="col-md-6">
                 <label className="form-label">Delivery Mode</label>
@@ -247,45 +305,50 @@ export default function DealerInvoice() {
             </div>
 
             <h6 className="border-bottom pb-2 mb-3">Items</h6>
-            {form.items.map((it, idx) => (
-              <div key={idx} className="row g-2 align-items-end mb-2 p-2 border rounded">
-                <div className="col-md-3">
-                  <label className="form-label small">Model *</label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={it.modelId}
-                    onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0 })}
-                    required
-                  >
-                    <option value={0}>Select model</option>
-                    {models.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
-                  </select>
+            {form.items.map((it, idx) => {
+              const dup = getItemDuplicateErrors(idx)
+              return (
+                <div key={idx} className="row g-2 align-items-end mb-2 p-2 border rounded">
+                  <div className="col-md-3">
+                    <label className="form-label small">Model *</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={it.modelId}
+                      onChange={(e) => updateItem(idx, { modelId: parseInt(e.target.value, 10) || 0 })}
+                      required
+                    >
+                      <option value={0}>Select model</option>
+                      {models.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-md-2">
+                    <label className="form-label small">Color</label>
+                    <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value.toUpperCase() })} placeholder="Color (saved as UPPERCASE)" className="form-control form-control-sm" />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="form-label small">Item Code</label>
+                    <Input value={it.itemCode} onChange={(e) => updateItem(idx, { itemCode: e.target.value })} placeholder="Code only (e.g. A500)" className="form-control form-control-sm" />
+                  </div>
+                  <div className="col-md-2">
+                    <label className="form-label small">Chassis Number</label>
+                    <Input value={it.chassisNumber ?? ''} onChange={(e) => updateItem(idx, { chassisNumber: e.target.value })} placeholder="Chassis" className="form-control form-control-sm" />
+                    {dup.chassis && <p className="text-danger small mb-0 mt-1">Chassis number is duplicate in this invoice.</p>}
+                  </div>
+                  <div className="col-md-2">
+                    <label className="form-label small">Motor Number</label>
+                    <Input value={it.motorNumber ?? ''} onChange={(e) => updateItem(idx, { motorNumber: e.target.value })} placeholder="Motor" className="form-control form-control-sm" />
+                    {dup.motor && <p className="text-danger small mb-0 mt-1">Motor number is duplicate in this invoice.</p>}
+                  </div>
+                  <div className="col-md-1">
+                    <Button type="button" variant="outline" size="sm" className="p-1" onClick={() => removeItem(idx)} title="Remove">
+                      <Trash2 size={18} className="text-danger" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="col-md-2">
-                  <label className="form-label small">Color</label>
-                  <Input value={it.color} onChange={(e) => updateItem(idx, { color: e.target.value.toUpperCase() })} placeholder="Color (saved as UPPERCASE)" className="form-control form-control-sm" />
-                </div>
-                <div className="col-md-2">
-                  <label className="form-label small">Item Code</label>
-                  <Input value={it.itemCode} onChange={(e) => updateItem(idx, { itemCode: e.target.value })} placeholder="Code only (e.g. A500)" className="form-control form-control-sm" />
-                </div>
-                <div className="col-md-2">
-                  <label className="form-label small">Chassis Number</label>
-                  <Input value={it.chassisNumber ?? ''} onChange={(e) => updateItem(idx, { chassisNumber: e.target.value })} placeholder="Chassis" className="form-control form-control-sm" />
-                </div>
-                <div className="col-md-2">
-                  <label className="form-label small">Motor Number</label>
-                  <Input value={it.motorNumber ?? ''} onChange={(e) => updateItem(idx, { motorNumber: e.target.value })} placeholder="Motor" className="form-control form-control-sm" />
-                </div>
-                <div className="col-md-1">
-                  <Button type="button" variant="outline" size="sm" className="p-1" onClick={() => removeItem(idx)} title="Remove">
-                    <Trash2 size={18} className="text-danger" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
             <Button type="button" variant="outline" size="sm" onClick={addItem} className="mb-3">
               <Plus size={18} className="me-1" />
               Add Item
@@ -295,7 +358,7 @@ export default function DealerInvoice() {
             <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null) }}>
               Cancel
             </Button>
-            <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
+            <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }} disabled={!!contactPersonError || hasItemDuplicates}>
               {editingId ? 'Update Dealer' : 'Save Dealer'}
             </Button>
           </div>
@@ -307,7 +370,7 @@ export default function DealerInvoice() {
       {!showForm && (
       <div className="card">
         <div className="card-body">
-          {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer consignment note saved successfully.</div>}
+          {saveSuccess && <div className="alert alert-success py-2 mb-3">Dealer saved successfully.</div>}
           <Input
             placeholder="Search by dealer code, name, consignment no..."
             className="mb-3"
@@ -356,7 +419,7 @@ export default function DealerInvoice() {
                   </tbody>
                 </table>
               </div>
-              {filteredNotes.length === 0 && <p className="text-muted mb-0">No dealer consignment notes found</p>}
+              {filteredNotes.length === 0 && <p className="text-muted mb-0">No dealer notes found</p>}
             </>
           )}
         </div>

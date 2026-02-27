@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { formatCurrency } from '@/lib/utils'
+import { useShopDetail } from '@/context/ShopDetailContext'
 import type { Invoice } from '@/types'
 
 interface BillPrintProps {
@@ -8,12 +9,14 @@ interface BillPrintProps {
 
 export default function BillPrint({ invoice }: BillPrintProps) {
   const printRef = useRef<HTMLDivElement>(null)
+  const { shopDetail } = useShopDetail()
+  const shopName = shopDetail?.name?.trim() || 'AIMA Showroom'
 
   return (
     <div ref={printRef} className="bill-print-content" style={{ width: '80mm', margin: '0 auto', fontFamily: 'monospace', fontSize: '12px' }}>
       <div ref={printRef} className="p-2">
         <div className="text-center border-bottom pb-2 mb-2">
-          <h5 className="mb-0">AIMA Showroom</h5>
+          <h5 className="mb-0">{shopName}</h5>
           <small>Bike Sales</small>
         </div>
         <div className="mb-2">

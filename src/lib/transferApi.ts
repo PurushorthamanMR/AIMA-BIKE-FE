@@ -9,6 +9,7 @@ export interface TransferListLineDto {
     id: number
     modelId: number
     name: string
+    itemCode?: string
     color?: string
     quantity?: number
     modelDto?: { id: number; name: string; categoryDto?: { id: number; name: string } }
@@ -25,7 +26,7 @@ export interface TransferDto {
   nic?: string | null
   isActive?: boolean
   transferList?: TransferListLineDto[]
-  userDto?: { id: number; firstName?: string; lastName?: string; emailAddress?: string }
+  userDto?: { id: number; firstName?: string; lastName?: string; name?: string; emailAddress?: string }
 }
 
 export async function saveTransfer(data: {
@@ -33,6 +34,7 @@ export async function saveTransfer(data: {
   companyName: string
   address: string
   deliveryDetails: string
+  contactNumber?: number
   nic?: string | null
   transferList: Array<{ stockId: number; quantity?: number }>
 }): Promise<{ success: boolean; error?: string }> {

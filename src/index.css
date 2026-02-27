@@ -144,6 +144,13 @@
 .dashboard-card-invoices { border-color: var(--aima-primary); }
 .dashboard-card-invoices h6 { color: var(--aima-primary); }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* POS Page - premium layout */
 .pos-page {
   background: var(--aima-surface);

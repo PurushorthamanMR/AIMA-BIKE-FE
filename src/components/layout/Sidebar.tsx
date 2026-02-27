@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useResolvedLogoUrl } from '@/hooks/useResolvedLogoUrl'
+import { useShopDetail } from '@/context/ShopDetailContext'
+import { getSettingsAllPagination } from '@/lib/settingsApi'
+import type { SettingDto } from '@/lib/settingsApi'
 import {
   LayoutDashboard,
   Users,
@@ -16,24 +20,48 @@ import {
   CreditCard,
   Layers,
   Package,
+  Database as DatabaseIcon,
+  Store,
 } from 'lucide-react'
 
-const menuItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'manager', 'staff'] },
-  { path: '/profile', icon: User, label: 'Profile', roles: ['admin', 'manager', 'staff'] },
-  { path: '/pos', icon: ShoppingCart, label: 'POS', roles: ['admin', 'manager', 'staff'] },
-  { path: '/category', icon: Layers, label: 'Category', roles: ['admin', 'manager', 'staff'] },
-  { path: '/bike-models', icon: Bike, label: 'Bike Models', roles: ['admin', 'manager', 'staff'] },
-  { path: '/stock', icon: Package, label: 'Stock', roles: ['admin', 'manager', 'staff'] },
-  { path: '/customers', icon: Users, label: 'Customers', roles: ['admin', 'manager'] },
-  { path: '/users', icon: UserCog, label: 'User', roles: ['admin', 'manager'] },
-  { path: '/payment', icon: CreditCard, label: 'Payment', roles: ['admin', 'manager', 'staff'] },
-  { path: '/courier', icon: Truck, label: 'Courier', roles: ['admin', 'manager', 'staff'] },
-  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', roles: ['admin', 'manager', 'staff'] },
-  { path: '/dealer-invoice', icon: FileText, label: 'Dealer Invoice', roles: ['admin', 'manager', 'staff'] },
-  { path: '/reports', icon: BarChart3, label: 'Reports', roles: ['admin', 'manager'] },
-  { path: '/settings', icon: Settings, label: 'Settings', roles: ['admin', 'manager'] },
+const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<{ size?: number }>; label: string; settingKey: string }> = [
+  { path: '/', icon: LayoutDashboard, label: 'Dashboard', settingKey: 'Dashboard' },
+  { path: '/profile', icon: User, label: 'Profile', settingKey: 'Profile' },
+  { path: '/pos', icon: ShoppingCart, label: 'POS', settingKey: 'Pos' },
+  { path: '/category', icon: Layers, label: 'Category', settingKey: 'Category' },
+  { path: '/bike-models', icon: Bike, label: 'Models', settingKey: 'Models' },
+  { path: '/stock', icon: Package, label: 'Stock', settingKey: 'Stock' },
+  { path: '/customers', icon: Users, label: 'Customers', settingKey: 'Customer' },
+  { path: '/users', icon: UserCog, label: 'User', settingKey: 'User' },
+  { path: '/payment', icon: CreditCard, label: 'Payment', settingKey: 'Payment' },
+  { path: '/courier', icon: Truck, label: 'Courier', settingKey: 'Courier' },
+  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', settingKey: 'Transfer' },
+  { path: '/dealer-invoice', icon: FileText, label: 'Dealer', settingKey: 'Dealer' },
+  { path: '/reports', icon: BarChart3, label: 'Reports', settingKey: 'Reports' },
+  { path: '/shop-details', icon: Store, label: 'Shop Detail', settingKey: 'ShopDetails' },
+  { path: '/settings', icon: Settings, label: 'Settings', settingKey: 'Settings' },
+  { path: '/database', icon: DatabaseIcon, label: 'Database', settingKey: 'Database' },
 ]
+
+const STAFF_NO_ACCESS_KEYS = ['user', 'database']
+
+function settingsMap(list: SettingDto[]): Map<string, { isActiveAdmin: boolean; isActiveManager: boolean }> {
+  const map = new Map<string, { isActiveAdmin: boolean; isActiveManager: boolean }>()
+  list.forEach((s) => {
+    const key = (s.name || '').trim().toLowerCase()
+    if (key) map.set(key, { isActiveAdmin: s.isActiveAdmin !== false, isActiveManager: s.isActiveManager !== false })
+  })
+  return map
+}
+
+function settingsOrderMap(list: SettingDto[]): Map<string, number> {
+  const orderMap = new Map<string, number>()
+  list.forEach((s, index) => {
+    const key = (s.name || '').trim().toLowerCase()
+    if (key) orderMap.set(key, index)
+  })
+  return orderMap
+}
 
 interface SidebarProps {
   collapsed: boolean
@@ -41,12 +69,47 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed }: SidebarProps) {
   const { user } = useAuth()
+  const { shopDetail } = useShopDetail()
+  const resolvedLogo = useResolvedLogoUrl(shopDetail?.logo)
   const [logoError, setLogoError] = useState(false)
+  const [settingsList, setSettingsList] = useState<SettingDto[]>([])
+  const shopName = shopDetail?.name?.trim() || 'AIMA Showroom'
+  const logoUrl = resolvedLogo || '/images_logos/logo.jpg'
+
+  useEffect(() => {
+    getSettingsAllPagination(1, 500)
+      .then((res) => setSettingsList(res.content ?? []))
+      .catch(() => setSettingsList([]))
+  }, [])
 
   const userRole = user?.role?.toLowerCase()
-  const filteredItems = menuItems.filter((item) =>
-    !userRole || item.roles.includes(userRole)
-  )
+  const map = settingsMap(settingsList)
+  const orderMap = settingsOrderMap(settingsList)
+
+  const filtered = MENU_ITEMS.filter((item) => {
+    if (!userRole) return false
+    const key = item.settingKey.toLowerCase()
+    const setting = map.get(key)
+    if (userRole === 'admin') {
+      return true
+    }
+    if (userRole === 'manager') {
+      if (key === 'settings' || key === 'user') return true
+      return setting ? setting.isActiveAdmin : false
+    }
+    if (userRole === 'staff') {
+      if (STAFF_NO_ACCESS_KEYS.includes(key)) return false
+      // Staff sees item only when both Admin and Manager have it on
+      return setting ? (setting.isActiveAdmin && setting.isActiveManager) : false
+    }
+    return false
+  })
+
+  const filteredItems = [...filtered].sort((a, b) => {
+    const orderA = orderMap.get(a.settingKey.toLowerCase()) ?? 9999
+    const orderB = orderMap.get(b.settingKey.toLowerCase()) ?? 9999
+    return orderA - orderB
+  })
 
   const width = collapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'
 
@@ -70,22 +133,20 @@ export default function Sidebar({ collapsed }: SidebarProps) {
       <div className={`d-flex align-items-center justify-content-center ${collapsed ? 'flex-column px-2 py-3' : 'p-4'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         {logoError ? (
           collapsed ? (
-            <span className="fw-bold text-white" style={{ fontSize: '1rem' }} title="AIMA Showroom">AIMA</span>
+            <span className="fw-bold text-white" style={{ fontSize: '1rem' }} title={shopName}>{shopName.split(/\s/)[0] || 'Shop'}</span>
           ) : (
             <div>
-              <h5 className="mb-0 fw-bold">AIMA Showroom</h5>
-              <small className="text-white">Bike Sales POS</small>
+              <h5 className="mb-0 fw-bold">{shopName}</h5>
             </div>
           )
         ) : (
           <div className="d-flex flex-column align-items-center">
             <img
-              src="/images_logos/logo.jpg"
-              alt="AIMA Logo"
+              src={logoUrl}
+              alt={`${shopName} Logo`}
               style={collapsed ? { maxHeight: '28px', objectFit: 'contain' } : { maxHeight: '42px', objectFit: 'contain' }}
               onError={() => setLogoError(true)}
             />
-            {!collapsed && <small className="text-white mt-2">Bike Sales POS</small>}
           </div>
         )}
       </div>

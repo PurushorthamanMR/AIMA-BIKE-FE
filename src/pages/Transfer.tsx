@@ -4,7 +4,10 @@ import { Input } from '@/components/ui/input'
 import { saveTransfer, updateTransfer, getTransfersPage, getTransferById, type TransferDto } from '@/lib/transferApi'
 import { getStocksPage, type StockDto } from '@/lib/stockApi'
 import { useAuth } from '@/hooks/useAuth'
-import { Plus, ArrowRightLeft, Trash2 } from 'lucide-react'
+import { useShopDetail } from '@/context/ShopDetailContext'
+import { isValidSriLankaNIC } from '@/lib/nicUtils'
+import { Plus, ArrowRightLeft, Trash2, FileDown, Printer } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 import ViewIcon from '@/components/icons/ViewIcon'
 import EditIcon from '@/components/icons/EditIcon'
 import Swal from 'sweetalert2'
@@ -23,8 +26,140 @@ const emptyForm = {
   transferList: [{ stockId: 0, quantity: 1 }] as FormLine[],
 }
 
+const PAGE_W = 210
+const MARGIN = 15
+
+function buildTransferDetailPDF(t: TransferDto, shopName: string): jsPDF {
+  const doc = new jsPDF()
+  let y = 15
+
+  // Company info - top center (dealer invoice style)
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  doc.text(shopName || 'AIMA Bike', PAGE_W / 2, y, { align: 'center' })
+  y += 8
+
+  // Document title - centered
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text('TRANSFER', PAGE_W / 2, y, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  y += 12
+
+  // Two columns: Left - Handed by, Company, Address, Delivery | Right - Contact, NIC, Transfer ID
+  const col1X = MARGIN
+  const col2X = PAGE_W / 2 + 5
+  doc.setFontSize(9)
+  doc.text(`Handed by: ${t.userDto?.firstName ?? '-'}`, col1X, y)
+  doc.text(`Contact Number: ${t.contactNumber != null ? String(t.contactNumber) : '-'}`, col2X, y)
+  y += 6
+  doc.text(`Company Name: ${t.companyName ?? '-'}`, col1X, y)
+  doc.text(`NIC: ${t.nic ?? '-'}`, col2X, y)
+  y += 6
+  doc.text(`Address: ${(t.address ?? '-').substring(0, 45)}`, col1X, y)
+  doc.text(`Transfer ID: ${t.id}`, col2X, y)
+  y += 6
+  doc.text(`Delivery Details: ${(t.deliveryDetails ?? '-').substring(0, 45)}`, col1X, y)
+  y += 10
+
+  // Items table - Bike Model | Item Code | Color | QTY (dealer invoice style: bordered header, row lines)
+  const colW = [70, 45, 45, 20]
+  const tableStartY = y
+  const tableWidth = colW.reduce((a, b) => a + b, 0)
+  const headers = ['Bike Model', 'Item Code', 'Color', 'QTY']
+  let x = MARGIN
+
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.2)
+  doc.rect(MARGIN, tableStartY, tableWidth, 8)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  headers.forEach((h, i) => {
+    doc.text(h, x + 2, y + 5)
+    if (i < headers.length - 1) doc.line(x + colW[i], tableStartY, x + colW[i], tableStartY + 8)
+    x += colW[i]
+  })
+  doc.setFont('helvetica', 'normal')
+  y += 8
+
+  const list = t.transferList ?? []
+  let totalQty = 0
+  list.forEach((line) => {
+    if (y > 250) {
+      doc.addPage()
+      y = 20
+    }
+    doc.line(MARGIN, y, MARGIN + tableWidth, y)
+    const modelName = (line.stockDto?.modelDto?.name ?? '-').substring(0, 35)
+    const qty = Number(line.quantity) || 1
+    totalQty += qty
+    x = MARGIN
+    doc.setFontSize(8)
+    doc.text(modelName, x + 2, y + 4)
+    x += colW[0]
+    doc.text((line.stockDto?.itemCode ?? '-').substring(0, 18), x + 2, y + 4)
+    x += colW[1]
+    doc.text((line.stockDto?.color ?? '-').substring(0, 18), x + 2, y + 4)
+    x += colW[2]
+    doc.text(String(qty), x + 2, y + 4)
+    y += 6
+  })
+  doc.line(MARGIN, y, MARGIN + tableWidth, y)
+
+  // Total row
+  y += 4
+  const qtyColX = MARGIN + colW[0] + colW[1] + colW[2]
+  doc.setFont('helvetica', 'bold')
+  doc.text('Total', MARGIN + 4, y + 4)
+  doc.text(String(totalQty), qtyColX + 4, y + 4)
+  doc.setFont('helvetica', 'normal')
+  y += 14
+
+  // Received by / Signature (dealer invoice style)
+  doc.setFontSize(8)
+  doc.text('Received by: _______________  Date: _______________', MARGIN, y)
+  y += 10
+  doc.text('Name: _______________  Signature: _______________', MARGIN, y)
+  y += 14
+
+  // Footer (dealer invoice style)
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+  doc.setFontSize(7)
+  doc.setTextColor(120, 120, 120)
+  doc.text(`${dateStr} ${timeStr}`, MARGIN, 288)
+  doc.text('Page 1 of 1', PAGE_W / 2, 288, { align: 'center' })
+  doc.text(`Transfer ID - ${t.id}`, PAGE_W / 2, 292, { align: 'center' })
+  doc.text(`Printed by ${shopName || 'AIMA Bike'} POS`, PAGE_W - MARGIN, 288, { align: 'right' })
+  doc.setTextColor(0, 0, 0)
+  return doc
+}
+
+function downloadTransferDetailPDF(t: TransferDto, shopName: string) {
+  const doc = buildTransferDetailPDF(t, shopName)
+  doc.save(`Transfer-${t.companyName ?? t.id}.pdf`)
+}
+
+function printTransferDetailPDF(t: TransferDto, shopName: string) {
+  const doc = buildTransferDetailPDF(t, shopName)
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const w = window.open(url, '_blank')
+  if (w) {
+    setTimeout(() => {
+      try { w.print() } catch { /* PDF viewer may block */ }
+      URL.revokeObjectURL(url)
+    }, 800)
+  } else {
+    URL.revokeObjectURL(url)
+  }
+}
+
 export default function Transfer() {
   const { user } = useAuth()
+  const { shopDetail } = useShopDetail()
+  const shopName = shopDetail?.name?.trim() || 'AIMA Bike'
   const [transfers, setTransfers] = useState<TransferDto[]>([])
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize] = useState(10)
@@ -38,10 +173,34 @@ export default function Transfer() {
   const [searchNic, setSearchNic] = useState('')
   const [viewTransfer, setViewTransfer] = useState<TransferDto | null>(null)
   const [editingTransferId, setEditingTransferId] = useState<number | null>(null)
+  const [isViewMode, setIsViewMode] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [formErrors, setFormErrors] = useState<{ contactNumber?: string; nic?: string }>({})
   const [showForm, setShowForm] = useState(false)
   const [loadingView, setLoadingView] = useState(false)
+
+  const validateForm = (): boolean => {
+    const err: { contactNumber?: string; nic?: string } = {}
+    const contact = form.contactNumber.trim()
+    if (contact && !/^\d{10}$/.test(contact)) err.contactNumber = 'Contact number must be exactly 10 digits.'
+    if (form.nic.trim() && !isValidSriLankaNIC(form.nic)) err.nic = 'NIC must be Sri Lanka format: old (9 digits + V or X) or new (12 digits).'
+    setFormErrors(err)
+    return Object.keys(err).length === 0
+  }
+
+  /** Restrict NIC input: digits only, or 9 digits + one V/X (old format). No extra letters after V/X. */
+  const handleNicChange = (value: string) => {
+    let v = value.toUpperCase().replace(/[^0-9VX]/g, '')
+    const letters = v.match(/[VX]/g)
+    if (letters && letters.length > 0) {
+      const digits = v.replace(/[VX]/g, '').slice(0, 9)
+      v = digits + letters[0]
+    } else {
+      v = v.slice(0, 12)
+    }
+    setForm({ ...form, nic: v })
+  }
 
   const searchParams = {
     isActive: true,
@@ -105,12 +264,28 @@ export default function Transfer() {
     if (p >= 1 && p <= totalPages) setPageNumber(p)
   }
 
-  const openFormForViewOrEdit = (t: TransferDto) => {
+  const openFormForView = (t: TransferDto) => {
+    setLoadingView(true)
+    getTransferById(t.id).then((data) => {
+      if (data) {
+        setViewTransfer(data)
+        setEditingTransferId(null)
+        setIsViewMode(true)
+        setShowForm(true)
+        setSaveError('')
+        setFormErrors({})
+      }
+      setLoadingView(false)
+    })
+  }
+
+  const openFormForEdit = (t: TransferDto) => {
     setLoadingView(true)
     getTransferById(t.id).then((data) => {
       if (data) {
         setViewTransfer(data)
         setEditingTransferId(data.id)
+        setIsViewMode(false)
         setForm({
           companyName: data.companyName ?? '',
           contactNumber: data.contactNumber != null ? String(data.contactNumber) : '',
@@ -121,6 +296,7 @@ export default function Transfer() {
         })
         setShowForm(true)
         setSaveError('')
+        setFormErrors({})
       }
       setLoadingView(false)
     })
@@ -129,6 +305,8 @@ export default function Transfer() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
+    setFormErrors({})
+    if (!validateForm()) return
     if (editingTransferId != null) {
       const parseNum = (s: string) => {
         const n = parseInt(String(s || ''), 10)
@@ -166,11 +344,16 @@ export default function Transfer() {
       setSaveError('Add at least one stock line with a selected stock.')
       return
     }
+    const parseNum = (s: string) => {
+      const n = parseInt(String(s || ''), 10)
+      return !isNaN(n) ? n : undefined
+    }
     const result = await saveTransfer({
       userId,
       companyName: form.companyName.trim(),
       address: form.address.trim(),
       deliveryDetails: form.deliveryDetails.trim(),
+      contactNumber: parseNum(form.contactNumber) ?? undefined,
       nic: form.nic.trim() || null,
       transferList: validLines.map((line) => ({ stockId: line.stockId, quantity: 1 })),
     })
@@ -200,15 +383,93 @@ export default function Transfer() {
           <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Transfer</h2>
         </div>
         {!showForm && (
-          <Button onClick={() => { setShowForm(true); setSaveError(''); setEditingTransferId(null); setViewTransfer(null); setForm({ ...emptyForm, transferList: [{ stockId: 0, quantity: 1 }] }) }} style={{ backgroundColor: 'var(--aima-primary)' }}>
+          <Button onClick={() => { setShowForm(true); setIsViewMode(false); setSaveError(''); setFormErrors({}); setEditingTransferId(null); setViewTransfer(null); setForm({ ...emptyForm, transferList: [{ stockId: 0, quantity: 1 }] }) }} style={{ backgroundColor: 'var(--aima-primary)' }}>
             <Plus size={18} className="me-1" />
             Add Transfer
           </Button>
         )}
       </div>
 
-      {/* Transfer Form - inline, like Dealer Invoice */}
-      {showForm && (
+      {/* Transfer Form - inline, like Dealer */}
+      {showForm && isViewMode && viewTransfer && (
+      <div className="card mb-4">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h6 className="border-bottom pb-2 mb-0">Transfer Details</h6>
+            <div className="d-flex gap-2">
+              <Button type="button" onClick={() => printTransferDetailPDF(viewTransfer, shopName)} style={{ backgroundColor: '#374151', color: '#fff', border: 'none' }}>
+                <Printer size={18} className="me-1" />
+                Print
+              </Button>
+              <Button type="button" onClick={() => downloadTransferDetailPDF(viewTransfer, shopName)} style={{ backgroundColor: 'var(--aima-primary)', color: '#fff', border: 'none' }}>
+                <FileDown size={18} className="me-1" />
+                PDF
+              </Button>
+            </div>
+          </div>
+          <div className="row g-2">
+            <div className="col-12">
+              <label className="form-label text-muted">Handed by</label>
+              <Input value={viewTransfer.userDto?.firstName ?? viewTransfer.userId ?? '-'} readOnly className="form-control bg-light" />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label text-muted">companyName</label>
+              <Input value={viewTransfer.companyName ?? '-'} readOnly className="form-control bg-light" />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label text-muted">Contact Number</label>
+              <Input value={viewTransfer.contactNumber != null ? String(viewTransfer.contactNumber) : '-'} readOnly className="form-control bg-light" />
+            </div>
+            <div className="col-12">
+              <label className="form-label text-muted">address</label>
+              <Input value={viewTransfer.address ?? '-'} readOnly className="form-control bg-light" />
+            </div>
+            <div className="col-12">
+              <label className="form-label text-muted">deliveryDetails</label>
+              <Input value={viewTransfer.deliveryDetails ?? '-'} readOnly className="form-control bg-light" />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label text-muted">NIC</label>
+              <Input value={viewTransfer.nic ?? '-'} readOnly className="form-control bg-light" />
+            </div>
+          </div>
+          <h6 className="border-bottom pb-2 mb-2 mt-3">transferList</h6>
+          {(viewTransfer.transferList?.length ?? 0) > 0 ? (
+            <div className="table-responsive">
+              <table className="table table-sm table-bordered">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Item Code</th>
+                    <th>Color</th>
+                    <th>quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewTransfer.transferList.map((line, idx) => (
+                    <tr key={line.id ?? idx}>
+                      <td>{line.stockDto?.modelDto?.name ?? '-'}</td>
+                      <td>{line.stockDto?.itemCode ?? '-'}</td>
+                      <td>{line.stockDto?.color ?? '-'}</td>
+                      <td>{line.quantity ?? 1}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-muted mb-0">No stock lines</p>
+          )}
+        </div>
+        <div className="card-footer">
+          <Button type="button" variant="outline" onClick={() => { setShowForm(false); setViewTransfer(null); setIsViewMode(false) }}>
+            Close
+          </Button>
+        </div>
+      </div>
+      )}
+
+      {showForm && !isViewMode && (
       <div className="card mb-4">
         <form onSubmit={handleSubmit}>
           <div className="card-body">
@@ -218,8 +479,8 @@ export default function Transfer() {
             <div className="row g-2">
               {editingTransferId != null && viewTransfer && (
                 <div className="col-12">
-                  <label className="form-label text-muted">userId</label>
-                  <Input value={viewTransfer.userId ?? viewTransfer.userDto?.id ?? ''} readOnly className="form-control bg-light" />
+                  <label className="form-label text-muted">Handed by</label>
+                  <Input value={viewTransfer.userDto?.firstName ?? viewTransfer.userId ?? '-'} readOnly className="form-control bg-light" />
                 </div>
               )}
               <div className="col-md-6">
@@ -228,7 +489,14 @@ export default function Transfer() {
               </div>
               <div className="col-md-6">
                 <label className="form-label">Contact Number</label>
-                <Input type="tel" value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} placeholder="Contact" className="form-control" />
+                <Input
+                  type="tel"
+                  value={form.contactNumber}
+                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  placeholder="10 digits"
+                  className="form-control"
+                />
+                {formErrors.contactNumber && <p className="text-danger small mb-0 mt-1">{formErrors.contactNumber}</p>}
               </div>
               <div className="col-12">
                 <label className="form-label">address <span className="text-danger">*</span></label>
@@ -240,7 +508,13 @@ export default function Transfer() {
               </div>
               <div className="col-md-6">
                 <label className="form-label">NIC</label>
-                <Input value={form.nic} onChange={(e) => setForm({ ...form, nic: e.target.value })} placeholder="National Identity Card number" className="form-control" />
+                <Input
+                  value={form.nic}
+                  onChange={(e) => handleNicChange(e.target.value)}
+                  placeholder="National Identity Card number"
+                  className="form-control"
+                />
+                {formErrors.nic && <p className="text-danger small mb-0 mt-1">{formErrors.nic}</p>}
               </div>
             </div>
 
@@ -258,19 +532,19 @@ export default function Transfer() {
                     <table className="table table-sm table-bordered">
                       <thead>
                         <tr>
-                          <th>stockId</th>
-                          <th>quantity</th>
-                          <th>Stock / Model</th>
+                          <th>Model</th>
+                          <th>Item Code</th>
                           <th>Color</th>
+                          <th>quantity</th>
                         </tr>
                       </thead>
                       <tbody>
                         {viewTransfer.transferList.map((line, idx) => (
                           <tr key={line.id ?? idx}>
-                            <td>{line.stockId}</td>
-                            <td>{line.quantity ?? 1}</td>
-                            <td>{line.stockDto?.name || line.stockDto?.modelDto?.name || `Stock #${line.stockId}`}</td>
+                            <td>{line.stockDto?.modelDto?.name ?? '-'}</td>
+                            <td>{line.stockDto?.itemCode ?? '-'}</td>
                             <td>{line.stockDto?.color ?? '-'}</td>
+                            <td>{line.quantity ?? 1}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -323,7 +597,7 @@ export default function Transfer() {
             )}
           </div>
           <div className="card-footer d-flex justify-content-between align-items-center">
-            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingTransferId(null); setViewTransfer(null) }}>
+            <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingTransferId(null); setViewTransfer(null); setIsViewMode(false) }}>
               Cancel
             </Button>
             <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
@@ -363,7 +637,7 @@ export default function Transfer() {
                     <tr>
                       <th>Company Name</th>
                       <th>NIC</th>
-                      <th>User ID</th>
+                      <th>Handed by</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -372,13 +646,13 @@ export default function Transfer() {
                       <tr key={t.id}>
                         <td className="align-middle">{t.companyName ?? '-'}</td>
                         <td className="align-middle">{t.nic ?? '-'}</td>
-                        <td className="align-middle">{t.userId ?? t.userDto?.id ?? '-'}</td>
+                        <td className="align-middle">{t.userDto?.name ?? t.userId ?? '-'}</td>
                         <td className="align-middle">
                           <div className="d-flex align-items-center gap-1">
-                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => openFormForViewOrEdit(t)} title="View">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => openFormForView(t)} title="View">
                               <ViewIcon size={20} className="text-primary" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => openFormForViewOrEdit(t)} title="Edit">
+                            <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => openFormForEdit(t)} title="Edit">
                               <EditIcon size={18} className="text-dark" />
                             </Button>
                           </div>

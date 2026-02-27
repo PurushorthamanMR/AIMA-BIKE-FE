@@ -17,13 +17,14 @@ import Swal from 'sweetalert2'
 export default function Settings() {
   const { user } = useAuth()
   const isAdmin = user?.role?.toLowerCase() === 'admin'
-  const isManager = user?.role?.toLowerCase() === 'manager'
+  const showAdminColumn = isAdmin
+  const showActionColumn = isAdmin
 
   const [list, setList] = useState<SettingDto[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<SettingDto | null>(null)
-  const [form, setForm] = useState({ name: '', isActiveAdmin: true, isActiveManager: true })
+  const [form, setForm] = useState({ name: '' })
   const [success, setSuccess] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [searchName, setSearchName] = useState('')
@@ -49,19 +50,15 @@ export default function Settings() {
 
   useEffect(() => {
     if (editing) {
-      setForm({
-        name: editing.name ?? '',
-        isActiveAdmin: editing.isActiveAdmin !== false,
-        isActiveManager: editing.isActiveManager !== false,
-      })
+      setForm({ name: editing.name ?? '' })
     } else {
-      setForm({ name: '', isActiveAdmin: true, isActiveManager: true })
+      setForm({ name: '' })
     }
   }, [editing])
 
   const openAdd = () => {
     setEditing(null)
-    setForm({ name: '', isActiveAdmin: true, isActiveManager: true })
+    setForm({ name: '' })
     setShowForm(true)
   }
 
@@ -73,55 +70,6 @@ export default function Settings() {
   const closeForm = () => {
     setShowForm(false)
     setEditing(null)
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.name.trim()) {
-      await Swal.fire({ icon: 'error', title: 'Validation', text: 'Name is required.' })
-      return
-    }
-    const nameTrimmed = form.name.trim()
-    const nameLower = nameTrimmed.toLowerCase()
-    const isDuplicate = list.some(
-      (s) => (s.name || '').trim().toLowerCase() === nameLower && (editing ? s.id !== editing.id : true)
-    )
-    if (isDuplicate) {
-      await Swal.fire({ icon: 'error', title: 'Duplicate', text: 'A setting with this name already exists.' })
-      return
-    }
-    if (editing) {
-      const res = await updateSetting({
-        id: editing.id,
-        name: nameTrimmed,
-        isActiveAdmin: form.isActiveAdmin,
-        isActiveManager: form.isActiveManager,
-      })
-      if (res.success) {
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 2000)
-        closeForm()
-        load()
-        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting updated successfully.' })
-      } else {
-        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Update failed.' })
-      }
-    } else {
-      const res = await saveSetting({
-        name: nameTrimmed,
-        isActiveAdmin: form.isActiveAdmin,
-        isActiveManager: form.isActiveManager,
-      })
-      if (res.success) {
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 2000)
-        closeForm()
-        load()
-        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting added successfully.' })
-      } else {
-        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Save failed.' })
-      }
-    }
   }
 
   const handleToggleAdmin = async (s: SettingDto) => {
@@ -158,14 +106,69 @@ export default function Settings() {
     else await Swal.fire({ icon: 'error', title: 'Error', text: res.error })
   }
 
-  const filteredList = searchName.trim()
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name.trim()) {
+      await Swal.fire({ icon: 'error', title: 'Validation', text: 'Name is required.' })
+      return
+    }
+    const nameTrimmed = form.name.trim()
+    const nameLower = nameTrimmed.toLowerCase()
+    const isDuplicate = list.some(
+      (s) => (s.name || '').trim().toLowerCase() === nameLower && (editing ? s.id !== editing.id : true)
+    )
+    if (isDuplicate) {
+      await Swal.fire({ icon: 'error', title: 'Duplicate', text: 'A setting with this name already exists.' })
+      return
+    }
+    if (editing) {
+      const res = await updateSetting({
+        id: editing.id,
+        name: nameTrimmed,
+        isActiveAdmin: true,
+        isActiveManager: true,
+      })
+      if (res.success) {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 2000)
+        closeForm()
+        load()
+        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting updated successfully.' })
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Update failed.' })
+      }
+    } else {
+      const res = await saveSetting({
+        name: nameTrimmed,
+        isActiveAdmin: true,
+        isActiveManager: true,
+      })
+      if (res.success) {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 2000)
+        closeForm()
+        load()
+        await Swal.fire({ icon: 'success', title: 'Saved', text: 'Setting added successfully.' })
+      } else {
+        await Swal.fire({ icon: 'error', title: 'Error', text: res.error ?? 'Save failed.' })
+      }
+    }
+  }
+
+  const filteredBySearch = searchName.trim()
     ? list.filter((s) => (s.name || '').toLowerCase().includes(searchName.trim().toLowerCase()))
     : list
+  // Manager and Staff see only settings where Admin has turned the feature on
+  const filteredList = isAdmin ? filteredBySearch : filteredBySearch.filter((s) => s.isActiveAdmin !== false)
 
   const clearSearch = () => setSearchName('')
 
   return (
     <div className="container-fluid">
+      <style>{`
+        .settings-toggle-switch .form-check-input:checked { background-color: #198754; border-color: #198754; }
+        .settings-toggle-switch .form-check-input:not(:checked) { background-color: #dc3545; border-color: #dc3545; }
+      `}</style>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="d-flex align-items-center gap-3">
           <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
@@ -206,34 +209,6 @@ export default function Settings() {
                         Already have this setting name
                       </p>
                     )}
-                </div>
-                <div className="col-md-2 d-flex align-items-center">
-                  <div className="form-check form-switch">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      id="form-isActiveAdmin"
-                      checked={form.isActiveAdmin}
-                      onChange={(e) => setForm({ ...form, isActiveAdmin: e.target.checked })}
-                    />
-                    <label className="form-check-label" htmlFor="form-isActiveAdmin">
-                      Admin active
-                    </label>
-                  </div>
-                </div>
-                <div className="col-md-2 d-flex align-items-center">
-                  <div className="form-check form-switch">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      id="form-isActiveManager"
-                      checked={form.isActiveManager}
-                      onChange={(e) => setForm({ ...form, isActiveManager: e.target.checked })}
-                    />
-                    <label className="form-check-label" htmlFor="form-isActiveManager">
-                      Manager active
-                    </label>
-                  </div>
                 </div>
                 <div className="col-12 d-flex align-items-end gap-2 pt-1">
                   <Button type="button" variant="outline" onClick={closeForm}>
@@ -284,20 +259,18 @@ export default function Settings() {
                   <thead>
                     <tr>
                       <th>Name</th>
-                      {isAdmin && <th>Admin active</th>}
+                      {showAdminColumn && <th>Admin active</th>}
                       <th>Manager active</th>
-                      {isAdmin && (
-                        <th className="text-end">Action</th>
-                      )}
+                      {showActionColumn && <th className="text-end">Action</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredList.map((s) => (
                       <tr key={s.id}>
                         <td className="fw-medium align-middle">{s.name}</td>
-                        {isAdmin && (
+                        {showAdminColumn && (
                           <td className="align-middle">
-                            <div className="form-check form-switch mb-0">
+                            <div className="form-check form-switch mb-0 settings-toggle-switch">
                               <input
                                 type="checkbox"
                                 className="form-check-input"
@@ -310,24 +283,18 @@ export default function Settings() {
                           </td>
                         )}
                         <td className="align-middle">
-                          {isAdmin ? (
-                            <div className="form-check form-switch mb-0">
-                              <input
-                                type="checkbox"
-                                className="form-check-input"
-                                id={`setting-manager-${s.id}`}
-                                checked={s.isActiveManager !== false}
-                                onChange={() => handleToggleManager(s)}
-                                title={s.isActiveManager !== false ? 'Turn off' : 'Turn on'}
-                              />
-                            </div>
-                          ) : (
-                            <span className={s.isActiveManager !== false ? 'text-success' : 'text-muted'}>
-                              {s.isActiveManager !== false ? 'Active' : 'Inactive'}
-                            </span>
-                          )}
+                          <div className="form-check form-switch mb-0 settings-toggle-switch">
+                            <input
+                              type="checkbox"
+                              className="form-check-input"
+                              id={`setting-manager-${s.id}`}
+                              checked={s.isActiveManager !== false}
+                              onChange={() => handleToggleManager(s)}
+                              title={s.isActiveManager !== false ? 'Turn off' : 'Turn on'}
+                            />
+                          </div>
                         </td>
-                        {isAdmin && (
+                        {showActionColumn && (
                           <td className="text-end align-middle">
                             <Button
                               variant="ghost"

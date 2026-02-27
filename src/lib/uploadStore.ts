@@ -25,7 +25,7 @@ function openDb(): Promise<IDBDatabase> {
 /** Save file to upload store. Returns path like upload/cash/1234567890_copyOfNic */
 export async function saveToUpload(
   file: File,
-  subfolder: 'cash' | 'lease' | 'bike-models',
+  subfolder: 'cash' | 'lease' | 'bike-models' | 'shop',
   fieldName: string
 ): Promise<{ success: boolean; path?: string; error?: string }> {
   const MAX_MB = 4

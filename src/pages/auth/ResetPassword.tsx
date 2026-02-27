@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useResolvedLogoUrl } from '@/hooks/useResolvedLogoUrl'
+import { useShopDetail } from '@/context/ShopDetailContext'
 import { resetPassword } from '@/lib/authApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +10,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons'
 
 export default function ResetPassword() {
+  const { shopDetail } = useShopDetail()
+  const resolvedLogo = useResolvedLogoUrl(shopDetail?.logo)
+  const shopName = shopDetail?.name?.trim() || 'AIMA'
+  const logoUrl = resolvedLogo || '/images_logos/logo.jpg'
   const [token, setToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -67,14 +73,14 @@ export default function ResetPassword() {
           <div className="d-flex justify-content-center mb-3">
             {!logoError ? (
               <img
-                src="/images_logos/logo.jpg"
-                alt="AIMA Logo"
+                src={logoUrl}
+                alt={`${shopName} Logo`}
                 style={{ maxHeight: '45px', objectFit: 'contain' }}
                 onError={() => setLogoError(true)}
               />
             ) : (
               <div className="text-center">
-                <h3 className="mb-0 fw-bold">AIMA</h3>
+                <h3 className="mb-0 fw-bold">{shopName}</h3>
                 <small className="text-muted">Showroom</small>
               </div>
             )}

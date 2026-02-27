@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserById, getUserByEmail, updateUser, type UserDto } from '@/lib/userApi'
 import { sendEmailOtp, verifyEmailOtp } from '@/lib/authApi'
@@ -111,11 +111,21 @@ export default function Profile() {
 
   const emailChanged = profile && (form.emailAddress || '').trim() !== (profile.emailAddress || '').trim()
   const needEmailVerify = editMode && emailChanged
-  const canSave = !needEmailVerify || !!emailVerificationToken
+  const mobileError = useMemo(() => {
+    const v = form.mobileNumber.trim()
+    if (!v) return null
+    if (!/^\d{10}$/.test(v)) return 'Mobile must be exactly 10 digits.'
+    return null
+  }, [form.mobileNumber])
+  const canSave = (!needEmailVerify || !!emailVerificationToken) && !mobileError
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
+    if (mobileError) {
+      await Swal.fire({ icon: 'warning', title: 'Invalid mobile', text: mobileError })
+      return
+    }
     if (needEmailVerify && !emailVerificationToken) {
       await Swal.fire({ icon: 'warning', title: 'Verify email', text: 'Verify your email with OTP before saving.' })
       return
@@ -271,12 +281,16 @@ export default function Profile() {
                         Mobile
                       </label>
                       <Input
+                        type="tel"
+                        inputMode="numeric"
                         value={form.mobileNumber}
-                        onChange={(e) => setForm({ ...form, mobileNumber: e.target.value })}
-                        placeholder="Mobile number"
+                        onChange={(e) => setForm({ ...form, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        placeholder="10 digits only"
                         className="form-control form-control-lg border-0 bg-white shadow-sm"
                         style={{ borderRadius: 12, padding: '0.65rem 1rem' }}
+                        maxLength={10}
                       />
+                      {mobileError && <p className="text-danger small mb-0 mt-1">{mobileError}</p>}
                     </div>
                     <div className="col-12">
                       <label className="form-label text-muted small text-uppercase fw-medium" style={{ letterSpacing: '0.05em' }}>

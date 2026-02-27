@@ -224,7 +224,7 @@ export default function BikeModels() {
           <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
             <Bike size={28} style={{ color: 'var(--aima-primary)' }} />
           </div>
-          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Bike Models</h2>
+          <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Models</h2>
         </div>
         {!showModelForm && (
           <Button onClick={openAddForm} style={{ backgroundColor: 'var(--aima-primary)' }}>
@@ -284,7 +284,7 @@ export default function BikeModels() {
         <div className="card">
           <div className="card-body">
             <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-              <h6 className="mb-0 fw-semibold">Bike Models</h6>
+              <h6 className="mb-0 fw-semibold">Models</h6>
               <div className="d-flex align-items-center gap-2 flex-nowrap">
                 <input
                   type="text"

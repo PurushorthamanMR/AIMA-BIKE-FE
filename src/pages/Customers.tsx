@@ -9,6 +9,7 @@ import EditIcon from '@/components/icons/EditIcon'
 import { UploadDisplay } from '@/components/UploadDisplay'
 import { FileUploadField } from '@/components/FileUploadField'
 import { isUploadPath, getUploadUrl } from '@/lib/uploadApi'
+import { useShopDetail } from '@/context/ShopDetailContext'
 import { jsPDF } from 'jspdf'
 import Swal from 'sweetalert2'
 
@@ -51,7 +52,7 @@ async function pathToDataUrl(path: string): Promise<string | null> {
   }
 }
 
-async function buildCustomerDetailPDF(c: DisplayCustomer): Promise<jsPDF> {
+async function buildCustomerDetailPDF(c: DisplayCustomer, shopName: string): Promise<jsPDF> {
   const doc = new jsPDF()
   let y = 18
 
@@ -60,10 +61,17 @@ async function buildCustomerDetailPDF(c: DisplayCustomer): Promise<jsPDF> {
   doc.setLineWidth(0.5)
   doc.rect(MARGIN - 5, 10, PAGE_W - 2 * (MARGIN - 5), 277)
 
+  // Shop name - top
+  if (shopName) {
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(40, 40, 40)
+    doc.text(shopName, PAGE_W / 2, y, { align: 'center' })
+    y += 6
+  }
   // Title - document style
   doc.setFontSize(14)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(40, 40, 40)
   doc.text('CUSTOMER DETAILS', PAGE_W / 2, y, { align: 'center' })
   y += 6
   doc.setFontSize(12)
@@ -246,13 +254,13 @@ async function buildCustomerDetailPDF(c: DisplayCustomer): Promise<jsPDF> {
   return doc
 }
 
-async function downloadCustomerDetailPDF(c: DisplayCustomer) {
-  const doc = await buildCustomerDetailPDF(c)
+async function downloadCustomerDetailPDF(c: DisplayCustomer, shopName: string) {
+  const doc = await buildCustomerDetailPDF(c, shopName)
   doc.save(`Customer-${c.name ?? c.id}-Details.pdf`)
 }
 
-async function printCustomerDetailPDF(c: DisplayCustomer) {
-  const doc = await buildCustomerDetailPDF(c)
+async function printCustomerDetailPDF(c: DisplayCustomer, shopName: string) {
+  const doc = await buildCustomerDetailPDF(c, shopName)
   const blob = doc.output('blob')
   const url = URL.createObjectURL(blob)
   const w = window.open(url, '_blank')
@@ -334,6 +342,8 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50]
 type StatusFilter = 'pending' | 'complete' | 'return'
 
 export default function Customers() {
+  const { shopDetail } = useShopDetail()
+  const shopName = shopDetail?.name?.trim() || ''
   const [listContent, setListContent] = useState<CustomerDto[]>([])
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -566,11 +576,11 @@ export default function Customers() {
           <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <h5 className="mb-0">{isEdit ? 'Edit' : 'Customer Details'} - {detailCustomer.name}</h5>
             <div className="d-flex flex-wrap gap-2 align-items-center no-print">
-              <Button size="sm" disabled={pdfLoading} onClick={async () => { setPdfLoading(true); await downloadCustomerDetailPDF(detailCustomer); setPdfLoading(false); }} style={{ backgroundColor: 'var(--aima-primary)', color: '#fff', border: 'none' }}>
+              <Button size="sm" disabled={pdfLoading} onClick={async () => { setPdfLoading(true); await downloadCustomerDetailPDF(detailCustomer, shopName); setPdfLoading(false); }} style={{ backgroundColor: 'var(--aima-primary)', color: '#fff', border: 'none' }}>
                 <FileDown size={16} className="me-1" />
                 {pdfLoading ? 'Generating...' : 'PDF'}
               </Button>
-              <Button variant="outline" size="sm" disabled={pdfLoading} onClick={async () => { setPdfLoading(true); await printCustomerDetailPDF(detailCustomer); setPdfLoading(false); }} style={{ borderColor: 'var(--aima-secondary)', color: 'var(--aima-secondary)' }}>
+              <Button variant="outline" size="sm" disabled={pdfLoading} onClick={async () => { setPdfLoading(true); await printCustomerDetailPDF(detailCustomer, shopName); setPdfLoading(false); }} style={{ borderColor: 'var(--aima-secondary)', color: 'var(--aima-secondary)' }}>
                 <Printer size={16} className="me-1" />
                 {pdfLoading ? 'Generating...' : 'Print'}
               </Button>
@@ -615,10 +625,10 @@ export default function Customers() {
                 </div>
                 <h6 className="border-bottom pb-2 mb-3">Vehicle Purchase Details</h6>
                 <div className="row g-2 mb-4">
-                  <div className="col-md-6"><label className="form-label">Model</label><Input className="form-control" value={detailCustomer.model ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, model: e.target.value })} readOnly /></div>
-                  <div className="col-md-6"><label className="form-label">Chassis Number</label><Input className="form-control" value={detailCustomer.chassisNumber ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, chassisNumber: e.target.value })} /></div>
-                  <div className="col-md-6"><label className="form-label">Motor Number</label><Input className="form-control" value={detailCustomer.motorNumber ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, motorNumber: e.target.value })} /></div>
-                  <div className="col-md-6"><label className="form-label">Colour</label><Input className="form-control" value={detailCustomer.colourOfVehicle ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, colourOfVehicle: e.target.value })} /></div>
+                  <div className="col-md-6"><label className="form-label">Model</label><Input className="form-control bg-light" value={detailCustomer.model ?? ''} readOnly /></div>
+                  <div className="col-md-6"><label className="form-label">Chassis Number</label><Input className="form-control bg-light" value={detailCustomer.chassisNumber ?? ''} readOnly /></div>
+                  <div className="col-md-6"><label className="form-label">Motor Number</label><Input className="form-control bg-light" value={detailCustomer.motorNumber ?? ''} readOnly /></div>
+                  <div className="col-md-6"><label className="form-label">Colour</label><Input className="form-control bg-light" value={detailCustomer.colourOfVehicle ?? ''} readOnly /></div>
                   <div className="col-md-6"><label className="form-label">Date of Purchase</label><Input type="date" className="form-control" value={detailCustomer.dateOfPurchase ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, dateOfPurchase: e.target.value })} /></div>
                   <div className="col-md-6"><label className="form-label">Selling Price</label><Input type="number" className="form-control" value={detailCustomer.sellingPrice ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, sellingPrice: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>
                   <div className="col-md-6"><label className="form-label">Registration Fee</label><Input type="number" className="form-control" value={detailCustomer.registrationFee ?? ''} onChange={(e) => setEditCustomer({ ...detailCustomer, registrationFee: e.target.value ? parseFloat(e.target.value) : undefined })} /></div>

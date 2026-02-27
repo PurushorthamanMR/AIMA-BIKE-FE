@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useResolvedLogoUrl } from '@/hooks/useResolvedLogoUrl'
+import { useShopDetail } from '@/context/ShopDetailContext'
 import { forgotPassword } from '@/lib/authApi'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,7 +22,11 @@ export default function Login() {
   const [forgotSuccess, setForgotSuccess] = useState(false)
   const [forgotSubmitting, setForgotSubmitting] = useState(false)
   const { login, isAuthenticated } = useAuth()
+  const { shopDetail } = useShopDetail()
   const navigate = useNavigate()
+  const resolvedLogo = useResolvedLogoUrl(shopDetail?.logo)
+  const shopName = shopDetail?.name?.trim() || 'AIMA'
+  const logoUrl = resolvedLogo || '/images_logos/logo.jpg'
 
   useEffect(() => {
     if (isAuthenticated) navigate('/', { replace: true })
@@ -69,14 +75,14 @@ export default function Login() {
           <div className="d-flex justify-content-center mb-3">
             {!logoError ? (
               <img
-                src="/images_logos/logo.jpg"
-                alt="AIMA Logo"
+                src={logoUrl}
+                alt={`${shopName} Logo`}
                 style={{ maxHeight: '45px', objectFit: 'contain' }}
                 onError={() => setLogoError(true)}
               />
             ) : (
               <div className="text-center">
-                <h3 className="mb-0 fw-bold">AIMA</h3>
+                <h3 className="mb-0 fw-bold">{shopName}</h3>
                 <small className="text-muted">Showroom</small>
               </div>
             )}
@@ -145,7 +151,7 @@ export default function Login() {
                   <Lock size={24} style={{ color: 'var(--aima-primary)' }} />
                 </div>
                 <h4 className="fw-bold mb-1" style={{ color: 'var(--aima-secondary)' }}>Login</h4>
-                <p className="text-muted mb-0 small">Showroom - Bike Sales POS</p>
+                <p className="text-muted mb-0 small">{shopName} - Bike Sales POS</p>
               </div>
 
               <form onSubmit={handleSubmit}>

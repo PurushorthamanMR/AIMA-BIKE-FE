@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MOCK_PRODUCTS } from '@/data/mockData'
@@ -15,7 +15,8 @@ import { FileUploadField } from '@/components/FileUploadField'
 import { ModelImage } from '@/components/ModelImage'
 import { getDateOfBirthFromNIC } from '@/lib/nicUtils'
 import { saveCourier } from '@/lib/courierApi'
-import { getCustomersPage, type CustomerDto } from '@/lib/customerApi'
+import { getCustomersByStatus, type CustomerDto } from '@/lib/customerApi'
+import { SearchableSelect } from '@/components/SearchableSelect'
 
 type POSStep = 'categories' | 'bike-models' | 'bike-colors' | 'customer-form' | 'payment-option' | 'parts' | 'service-courier-card' | 'service'
 
@@ -153,6 +154,17 @@ export default function POS() {
   const [courierSaveError, setCourierSaveError] = useState('')
   const [hoveredColorKey, setHoveredColorKey] = useState<string | null>(null)
 
+  // Customer Data Sheet validation: Contact & WhatsApp 10 digits only
+  const customerFormErrors = useMemo(() => {
+    const contact = formData.contactNumber.trim()
+    const whatsapp = formData.whatsAppNumber.trim()
+    const err: { contactNumber?: string; whatsAppNumber?: string } = {}
+    if (contact && !/^\d{10}$/.test(contact)) err.contactNumber = 'Contact number must be exactly 10 digits.'
+    if (whatsapp && !/^\d{10}$/.test(whatsapp)) err.whatsAppNumber = 'WhatsApp number must be exactly 10 digits.'
+    return err
+  }, [formData.contactNumber, formData.whatsAppNumber])
+  const hasCustomerFormErrors = Object.keys(customerFormErrors).length > 0
+
   const partsProducts = MOCK_PRODUCTS.filter((p) => p.category === 'parts' || p.category === 'accessory')
 
   // Fetch categories from backend
@@ -193,7 +205,13 @@ export default function POS() {
     setLoadingModels(true)
     setModels([])
     const list = await getModelsByCategory(cat.id)
-    setModels(list)
+    const withStock = await Promise.all(
+      list.map(async (m) => ({ model: m, stocks: await getStocksByModel(m.id) }))
+    )
+    const modelsWithStock = withStock
+      .filter((x) => x.stocks.some((s) => (s.quantity ?? 0) > 0))
+      .map((x) => x.model)
+    setModels(modelsWithStock)
     setLoadingModels(false)
     setStep('bike-models')
   }
@@ -236,10 +254,10 @@ export default function POS() {
     }
   }, [step])
 
-  // Fetch customers when Service (courier form) is shown
+  // Fetch customers when Service (courier form) is shown - only pending (not received/complete) so dropdown doesn't show received customers
   useEffect(() => {
-    if (step === 'service' && customers.length === 0) {
-      getCustomersPage(1, 500, true).then((res) => {
+    if (step === 'service') {
+      getCustomersByStatus('pending', 1, 500, true).then((res) => {
         if (res?.content) setCustomers(res.content)
       })
     }
@@ -247,6 +265,16 @@ export default function POS() {
 
   const handleCustomerFormNext = (e: React.FormEvent) => {
     e.preventDefault()
+    if (hasCustomerFormErrors) {
+      const msg = customerFormErrors.contactNumber || customerFormErrors.whatsAppNumber || 'Please fix the errors below.'
+      Swal.fire({ icon: 'warning', title: 'Validation', text: msg })
+      return
+    }
+    const contact = formData.contactNumber.trim()
+    if (!contact || !/^\d{10}$/.test(contact)) {
+      Swal.fire({ icon: 'warning', title: 'Contact required', text: 'Contact number must be exactly 10 digits.' })
+      return
+    }
     setStep('payment-option')
     setPaymentOption(null)
     setCashFormData(emptyCashForm)
@@ -256,6 +284,15 @@ export default function POS() {
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
+    if (hasCustomerFormErrors) {
+      setSaveError(customerFormErrors.contactNumber || customerFormErrors.whatsAppNumber || 'Fix validation errors in Customer Data.')
+      return
+    }
+    const contact = formData.contactNumber.trim()
+    if (!contact || !/^\d{10}$/.test(contact)) {
+      setSaveError('Contact number must be exactly 10 digits.')
+      return
+    }
     const sellingAmount = parseFloat(formData.sellingPrice) || 0
     const registrationFees = parseFloat(formData.registrationFee) || 0
 
@@ -630,9 +667,45 @@ export default function POS() {
                     <div className="col-md-4"><label className="form-label">District</label><Input value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Occupation</label><Input value={formData.occupation} onChange={(e) => setFormData({ ...formData, occupation: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">Religion</label><Input value={formData.religion} onChange={(e) => setFormData({ ...formData, religion: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">Contact Number</label><Input value={formData.contactNumber} onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })} required className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">WhatsApp Number</label><Input value={formData.whatsAppNumber} onChange={(e) => setFormData({ ...formData, whatsAppNumber: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-6"><label className="form-label">NIC/Business Registration Number</label><Input value={formData.nicOrBusinessRegNo} onChange={(e) => { const v = e.target.value; const dob = getDateOfBirthFromNIC(v); setFormData({ ...formData, nicOrBusinessRegNo: v, dateOfBirth: dob ?? formData.dateOfBirth }); }} className="form-control" /></div>
+                    <div className="col-md-4">
+                      <label className="form-label">Contact Number</label>
+                      <Input
+                        type="tel"
+                        inputMode="numeric"
+                        value={formData.contactNumber}
+                        onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        placeholder="10 digits only"
+                        required
+                        className="form-control"
+                        maxLength={10}
+                      />
+                      {customerFormErrors.contactNumber && <p className="text-danger small mb-0 mt-1">{customerFormErrors.contactNumber}</p>}
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">WhatsApp Number</label>
+                      <Input
+                        type="tel"
+                        inputMode="numeric"
+                        value={formData.whatsAppNumber}
+                        onChange={(e) => setFormData({ ...formData, whatsAppNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                        placeholder="10 digits only"
+                        className="form-control"
+                        maxLength={10}
+                      />
+                      {customerFormErrors.whatsAppNumber && <p className="text-danger small mb-0 mt-1">{customerFormErrors.whatsAppNumber}</p>}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">NIC/Business Registration Number</label>
+                      <Input
+                        value={formData.nicOrBusinessRegNo}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          const dob = getDateOfBirthFromNIC(v)
+                          setFormData({ ...formData, nicOrBusinessRegNo: v, dateOfBirth: dob ?? formData.dateOfBirth })
+                        }}
+                        className="form-control"
+                      />
+                    </div>
                     <div className="col-md-6"><label className="form-label">Date of Birth (DD/MM/YYYY)</label><Input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className="form-control" /></div>
                   </div>
 
@@ -640,8 +713,8 @@ export default function POS() {
                   <h6 className="border-bottom pb-2 mb-3">II. Sales Dealer Details</h6>
                   <div className="row g-2">
                     <div className="col-md-4"><label className="form-label">Model</label><Input value={formData.model} readOnly className="form-control bg-light" /></div>
-                    <div className="col-md-4"><label className="form-label">Chassis Number</label><Input value={formData.chassisNumber} onChange={(e) => setFormData({ ...formData, chassisNumber: e.target.value })} className="form-control" /></div>
-                    <div className="col-md-4"><label className="form-label">Motor Number</label><Input value={formData.motorNumber} onChange={(e) => setFormData({ ...formData, motorNumber: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-4"><label className="form-label">Chassis Number</label><Input value={formData.chassisNumber} readOnly className="form-control bg-light" /></div>
+                    <div className="col-md-4"><label className="form-label">Motor Number</label><Input value={formData.motorNumber} readOnly className="form-control bg-light" /></div>
                     <div className="col-md-4"><label className="form-label">Colour of Vehicle</label><Input value={formData.colourOfVehicle} readOnly className="form-control bg-light" /></div>
                     <div className="col-md-4"><label className="form-label">Date of Purchase</label><Input type="date" value={formData.dateOfPurchase} onChange={(e) => setFormData({ ...formData, dateOfPurchase: e.target.value })} className="form-control" /></div>
                     <div className="col-md-4"><label className="form-label">AIMA CARE Loyalty Card No</label><Input value={formData.aimaCareLoyaltyCardNo} onChange={(e) => setFormData({ ...formData, aimaCareLoyaltyCardNo: e.target.value })} className="form-control" /></div>
@@ -658,7 +731,7 @@ export default function POS() {
                     <ArrowLeft size={18} className="me-1" />
                     Back
                   </Button>
-                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }}>
+                  <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }} disabled={hasCustomerFormErrors}>
                     Next
                   </Button>
                 </div>
@@ -853,17 +926,16 @@ export default function POS() {
                   <div className="row g-2">
                     <div className="col-md-6">
                       <label className="form-label">Customer <span className="text-danger">*</span></label>
-                      <select
-                        className="form-select"
+                      <SearchableSelect
+                        options={customers.map((c) => ({
+                          value: c.id,
+                          label: [c.name, c.contactNumber ? String(c.contactNumber) : '', c.chassisNumber ?? ''].filter(Boolean).join(' - '),
+                        }))}
                         value={courierForm.customerId}
-                        onChange={(e) => setCourierForm({ ...courierForm, customerId: parseInt(e.target.value, 10) || 0 })}
+                        onChange={(v) => setCourierForm({ ...courierForm, customerId: v })}
+                        placeholder="Select customer"
                         required
-                      >
-                        <option value={0}>Select customer</option>
-                        {customers.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}{c.contactNumber ? ` - ${c.contactNumber}` : ''}{c.chassisNumber ? ` - ${c.chassisNumber}` : ''}</option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="col-md-6">
                       <label className="form-label">Name <span className="text-danger">*</span></label>

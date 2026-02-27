@@ -88,8 +88,6 @@ export default function Courier() {
                       <th>Name</th>
                       <th>Customer</th>
                       <th>Contact Number</th>
-                      <th>Address</th>
-                      <th>Sent Date</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -99,8 +97,6 @@ export default function Courier() {
                         <td className="fw-medium align-middle">{courier.name ?? '-'}</td>
                         <td className="align-middle">{courier.customerDto?.name ?? '-'}</td>
                         <td className="align-middle">{courier.contactNumber != null ? String(courier.contactNumber) : '-'}</td>
-                        <td className="align-middle">{courier.address ?? '-'}</td>
-                        <td className="align-middle">{courier.sentDate ?? '-'}</td>
                         <td className="align-middle">
                           <div className="d-flex align-items-center gap-1">
                             <Button variant="ghost" size="sm" className="p-1 d-inline-flex align-items-center" onClick={() => navigate(`/courier/${courier.id}`)} title="View details">

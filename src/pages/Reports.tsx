@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { formatCurrency } from '@/lib/utils'
-import { fetchAllCompletedCustomers, customersToSaleRecords, type ReportSaleRecord } from '@/lib/reportsApi'
+import { getReportSales, type ReportPeriod, type ReportSalesResponse } from '@/lib/reportApi'
 import {
   BarChart,
   Bar,
@@ -16,189 +16,300 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import { BarChart3, TrendingUp, DollarSign, Hash } from 'lucide-react'
-
-type PeriodType = 'daily' | 'monthly' | 'yearly'
+import { BarChart3, TrendingUp, DollarSign, Hash, Loader2, Printer, FileDown } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import { useShopDetail } from '@/context/ShopDetailContext'
 
 const CHART_COLORS = ['#E31C79', '#198754', '#E31C79', '#fd7e14', '#6f42c1', '#20c997', '#dc3545', '#ffc107']
 
+const emptyReport: ReportSalesResponse = {
+  summary: { totalSales: 0, totalCount: 0, avgPerSale: 0 },
+  chartData: [],
+  paymentData: [],
+  itemWiseList: [],
+  customerData: [],
+}
+
+function buildReportPrintHtml(report: ReportSalesResponse, period: ReportPeriod, shopName: string): string {
+  const periodLabel = period === 'daily' ? 'Daily' : period === 'monthly' ? 'Monthly' : 'Yearly'
+  const { summary, chartData, paymentData, itemWiseList, customerData } = report
+  const sortedCustomers = [...customerData].sort((a, b) => b.total - a.total)
+  const chartRows = chartData.map((d) => `<tr><td>${d.label}</td><td>${formatCurrency(d.sales)}</td><td>${d.count}</td></tr>`).join('')
+  const paymentRows = paymentData.map((d) => `<tr><td>${d.name}</td><td>${formatCurrency(d.value)}</td></tr>`).join('')
+  const itemRows = itemWiseList.map((d) => `<tr><td>${d.name}</td><td>${d.qty}</td><td>${formatCurrency(d.total)}</td></tr>`).join('')
+  const customerRows = sortedCustomers.map((d) => `<tr><td>${d.name}</td><td>${d.count}</td><td>${formatCurrency(d.total)}</td></tr>`).join('')
+  const title = shopName ? `${shopName} – Reports & Analytics` : 'Reports & Analytics'
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title} - ${periodLabel}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .period { color: #666; font-size: 14px; margin-bottom: 20px; }
+    .section { margin-bottom: 24px; }
+    .section h2 { font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    th { background: #f5f5f5; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .summary-box { border: 1px solid #ddd; padding: 12px; text-align: center; }
+    .summary-box strong { display: block; font-size: 18px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <p class="period">Period: ${periodLabel} · Generated ${new Date().toLocaleString()}</p>
+  <div class="summary-grid">
+    <div class="summary-box"><span>Total Sales</span><strong>${formatCurrency(summary.totalSales)}</strong></div>
+    <div class="summary-box"><span>Total Sales (Count)</span><strong>${summary.totalCount}</strong></div>
+    <div class="summary-box"><span>Avg per Sale</span><strong>${formatCurrency(summary.avgPerSale)}</strong></div>
+  </div>
+  ${chartData.length > 0 ? `<div class="section"><h2>Sales by Period</h2><table><thead><tr><th>Period</th><th>Sales</th><th>Count</th></tr></thead><tbody>${chartRows}</tbody></table></div>` : ''}
+  ${paymentData.length > 0 ? `<div class="section"><h2>Payment Type</h2><table><thead><tr><th>Payment</th><th>Amount</th></tr></thead><tbody>${paymentRows}</tbody></table></div>` : ''}
+  ${itemWiseList.length > 0 ? `<div class="section"><h2>Item-wise Sales</h2><table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>${itemRows}</tbody></table></div>` : ''}
+  ${sortedCustomers.length > 0 ? `<div class="section"><h2>Customer Sales</h2><table><thead><tr><th>Customer</th><th>Purchases</th><th>Total Spent</th></tr></thead><tbody>${customerRows}</tbody></table></div>` : ''}
+</body>
+</html>`
+}
+
+function buildReportPdf(report: ReportSalesResponse, period: ReportPeriod, shopName: string): jsPDF {
+  const doc = new jsPDF()
+  const periodLabel = period === 'daily' ? 'Daily' : period === 'monthly' ? 'Monthly' : 'Yearly'
+  let y = 18
+  if (shopName) {
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.text(shopName, 14, y)
+    y += 6
+  }
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Reports & Analytics', 14, y)
+  y += 8
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Period: ${periodLabel}  ·  Generated: ${new Date().toLocaleString()}`, 14, y)
+  y += 10
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.text('Summary', 14, y)
+  y += 6
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text(`Total Sales: ${formatCurrency(report.summary.totalSales)}`, 14, y)
+  y += 6
+  doc.text(`Total Count: ${report.summary.totalCount}`, 14, y)
+  y += 6
+  doc.text(`Avg per Sale: ${formatCurrency(report.summary.avgPerSale)}`, 14, y)
+  y += 12
+  const col1 = 14
+  const col2 = 60
+  const col3 = 120
+  const col4 = 170
+  if (report.chartData.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('Sales by Period', 14, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text('Period', col1, y)
+    doc.text('Sales', col2, y)
+    doc.text('Count', col3, y)
+    y += 5
+    report.chartData.slice(0, 15).forEach((r) => {
+      if (y > 270) { doc.addPage(); y = 20 }
+      doc.text(String(r.label).slice(0, 18), col1, y)
+      doc.text(formatCurrency(r.sales), col2, y)
+      doc.text(String(r.count), col3, y)
+      y += 5
+    })
+    y += 8
+  }
+  if (report.paymentData.length > 0) {
+    if (y > 250) { doc.addPage(); y = 20 }
+    doc.setFont('helvetica', 'bold')
+    doc.text('Payment Type', 14, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    report.paymentData.forEach((r) => {
+      if (y > 275) { doc.addPage(); y = 20 }
+      doc.text(r.name, col1, y)
+      doc.text(formatCurrency(r.value), col2, y)
+      y += 5
+    })
+    y += 8
+  }
+  if (report.itemWiseList.length > 0) {
+    if (y > 250) { doc.addPage(); y = 20 }
+    doc.setFont('helvetica', 'bold')
+    doc.text('Item-wise Sales', 14, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    report.itemWiseList.slice(0, 20).forEach((r) => {
+      if (y > 275) { doc.addPage(); y = 20 }
+      doc.text(String(r.name).slice(0, 25), col1, y)
+      doc.text(String(r.qty), col2, y)
+      doc.text(formatCurrency(r.total), col3, y)
+      y += 5
+    })
+    y += 8
+  }
+  if (report.customerData.length > 0) {
+    if (y > 250) { doc.addPage(); y = 20 }
+    doc.setFont('helvetica', 'bold')
+    doc.text('Customer Sales', 14, y)
+    y += 6
+    doc.setFont('helvetica', 'normal')
+    const sorted = [...report.customerData].sort((a, b) => b.total - a.total).slice(0, 25)
+    sorted.forEach((r) => {
+      if (y > 275) { doc.addPage(); y = 20 }
+      doc.text(String(r.name).slice(0, 28), col1, y)
+      doc.text(String(r.count), col2, y)
+      doc.text(formatCurrency(r.total), col3, y)
+      y += 5
+    })
+  }
+  return doc
+}
+
 export default function Reports() {
-  const [sales, setSales] = useState<ReportSaleRecord[]>([])
+  const { shopDetail } = useShopDetail()
+  const shopName = shopDetail?.name?.trim() || ''
+  const [report, setReport] = useState<ReportSalesResponse>(emptyReport)
   const [loading, setLoading] = useState(true)
-  const [period, setPeriod] = useState<PeriodType>('daily')
+  const [period, setPeriod] = useState<ReportPeriod>('daily')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    fetchAllCompletedCustomers()
-      .then((customers) => {
-        if (!cancelled) setSales(customersToSaleRecords(customers))
+    setError('')
+    getReportSales(period)
+      .then((data) => {
+        if (!cancelled) setReport(data ?? emptyReport)
       })
       .catch(() => {
-        if (!cancelled) setSales([])
+        if (!cancelled) {
+          setReport(emptyReport)
+          setError('Failed to load report.')
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [period])
 
-  const getDateDaysAgo = (days: number) => {
-    const d = new Date()
-    d.setDate(d.getDate() - days)
-    return d.toISOString().split('T')[0]
+  const { summary, chartData, paymentData, itemWiseList, customerData } = report
+  const totalSales = summary.totalSales
+  const totalCount = summary.totalCount
+  const sortedCustomers = [...customerData].sort((a, b) => b.total - a.total)
+
+  const handlePrint = () => {
+    const html = buildReportPrintHtml(report, period, shopName)
+    const w = window.open('', '_blank')
+    if (w) {
+      w.document.write(html)
+      w.document.close()
+      w.focus()
+      setTimeout(() => {
+        w.print()
+        w.close()
+      }, 400)
+    }
   }
 
-  const { filteredSales, chartData, paymentData, itemWiseList, customerData } = useMemo(() => {
-    let filtered = sales
-    if (period === 'daily') {
-      filtered = sales.filter((s) => s.date && s.date >= getDateDaysAgo(30))
-    } else if (period === 'monthly') {
-      filtered = sales.filter((s) => s.date && s.date >= getDateDaysAgo(365))
-    }
-
-    const byDate: Record<string, { count: number; total: number }> = {}
-    filtered.forEach((s) => {
-      const d = s.date
-      if (!d) return
-      if (!byDate[d]) byDate[d] = { count: 0, total: 0 }
-      byDate[d].count += 1
-      byDate[d].total += s.amount
-    })
-
-    let chartDataPoints: { label: string; sales: number; count: number }[] = []
-    if (period === 'daily') {
-      const days = 30
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date()
-        d.setDate(d.getDate() - i)
-        const key = d.toISOString().split('T')[0]
-        const data = byDate[key] ?? { count: 0, total: 0 }
-        chartDataPoints.push({
-          label: key.slice(5),
-          sales: data.total,
-          count: data.count,
-        })
-      }
-    } else if (period === 'monthly') {
-      const months: Record<string, { count: number; total: number }> = {}
-      filtered.forEach((s) => {
-        if (!s.date) return
-        const [y, m] = s.date.split('-')
-        const key = `${y}-${m}`
-        if (!months[key]) months[key] = { count: 0, total: 0 }
-        months[key].count += 1
-        months[key].total += s.amount
-      })
-      chartDataPoints = Object.entries(months)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-12)
-        .map(([key, data]) => ({
-          label: key,
-          sales: data.total,
-          count: data.count,
-        }))
-    } else {
-      const years: Record<string, { count: number; total: number }> = {}
-      filtered.forEach((s) => {
-        if (!s.date) return
-        const y = s.date.split('-')[0]
-        if (!years[y]) years[y] = { count: 0, total: 0 }
-        years[y].count += 1
-        years[y].total += s.amount
-      })
-      chartDataPoints = Object.entries(years)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, data]) => ({
-          label: key,
-          sales: data.total,
-          count: data.count,
-        }))
-    }
-
-    const paymentBreakdown: Record<string, number> = {}
-    filtered.forEach((s) => {
-      const key = s.paymentType || 'other'
-      paymentBreakdown[key] = (paymentBreakdown[key] ?? 0) + s.amount
-    })
-    const paymentData = Object.entries(paymentBreakdown).map(([name, value]) => ({ name, value }))
-
-    const modelSales: Record<string, { qty: number; total: number }> = {}
-    filtered.forEach((s) => {
-      const key = s.model || '-'
-      if (!modelSales[key]) modelSales[key] = { qty: 0, total: 0 }
-      modelSales[key].qty += 1
-      modelSales[key].total += s.amount
-    })
-    const itemWiseList = Object.entries(modelSales)
-      .map(([name, data]) => ({ name, qty: data.qty, total: data.total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10)
-
-    const customerData: Record<string, { count: number; total: number }> = {}
-    filtered.forEach((s) => {
-      const name = s.customerName || 'Unknown'
-      if (!customerData[name]) customerData[name] = { count: 0, total: 0 }
-      customerData[name].count += 1
-      customerData[name].total += s.amount
-    })
-
-    return {
-      filteredSales: filtered,
-      chartData: chartDataPoints,
-      paymentData,
-      itemWiseList,
-      customerData,
-    }
-  }, [sales, period])
-
-  const totalSales = filteredSales.reduce((sum, s) => sum + s.amount, 0)
-  const totalCount = filteredSales.length
+  const handleDownloadPdf = () => {
+    const doc = buildReportPdf(report, period, shopName)
+    const periodLabel = period === 'daily' ? 'Daily' : period === 'monthly' ? 'Monthly' : 'Yearly'
+    doc.save(`Reports-Analytics-${periodLabel}-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   if (loading) {
     return (
-      <div className="container-fluid">
-        <div className="d-flex align-items-center gap-3 mb-4">
-          <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
-            <BarChart3 size={32} style={{ color: 'var(--aima-primary)' }} />
-          </div>
-          <h2 style={{ color: 'var(--aima-secondary)' }}>Reports & Analytics</h2>
-        </div>
-        <p className="text-muted">Loading report data...</p>
+      <div
+        className="d-flex flex-column align-items-center justify-content-center text-center"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          zIndex: 1050,
+        }}
+      >
+        <Loader2 size={48} className="mb-3" style={{ color: 'var(--aima-primary)', animation: 'spin 1s linear infinite' }} />
+        <h5 className="mb-1" style={{ color: 'var(--aima-secondary)' }}>Loading report...</h5>
+        <p className="text-muted small mb-0">{period === 'daily' ? 'Daily' : period === 'monthly' ? 'Monthly' : 'Yearly'} data</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
   return (
     <div className="container-fluid">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
           <div className="rounded-3 p-2" style={{ background: 'rgba(170, 51, 106, 0.1)' }}>
             <BarChart3 size={32} style={{ color: 'var(--aima-primary)' }} />
           </div>
           <h2 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>Reports & Analytics</h2>
         </div>
-        <div className="btn-group">
+        <div className="d-flex align-items-center gap-2">
           <button
-            className={`btn btn-sm ${period === 'daily' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setPeriod('daily')}
+            type="button"
+            className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2"
+            onClick={handlePrint}
+            title="Print report"
           >
-            Daily
+            <Printer size={18} />
+            Print
           </button>
           <button
-            className={`btn btn-sm ${period === 'monthly' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setPeriod('monthly')}
+            type="button"
+            className="btn btn-sm d-inline-flex align-items-center gap-2"
+            style={{ backgroundColor: 'var(--aima-primary)', color: '#fff' }}
+            onClick={handleDownloadPdf}
+            title="Download PDF report"
           >
-            Monthly
+            <FileDown size={18} />
+            PDF
           </button>
-          <button
-            className={`btn btn-sm ${period === 'yearly' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
-            onClick={() => setPeriod('yearly')}
-          >
-            Yearly
-          </button>
+          <div className="btn-group ms-1">
+            <button
+              type="button"
+              className={`btn btn-sm ${period === 'daily' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setPeriod('daily')}
+            >
+              Daily
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${period === 'monthly' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setPeriod('monthly')}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${period === 'yearly' ? 'btn-aima-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setPeriod('yearly')}
+            >
+              Yearly
+            </button>
+          </div>
         </div>
       </div>
+
+      {error && (
+        <div className="alert alert-warning py-2 mb-3" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="row g-3 mb-4">
@@ -232,7 +343,7 @@ export default function Reports() {
                 <TrendingUp size={20} style={{ color: 'var(--aima-info)' }} />
               </div>
               <h3 className="mb-0" style={{ color: 'var(--aima-secondary)' }}>
-                {totalCount > 0 ? formatCurrency(totalSales / totalCount) : formatCurrency(0)}
+                {formatCurrency(summary.avgPerSale)}
               </h3>
             </div>
           </div>
@@ -275,7 +386,7 @@ export default function Reports() {
             </div>
             <div className="card-body">
               {paymentData.length > 0 ? (
-                <div style={{ width: '100%', height: 280 }}>
+                <div style={{ width: '100%', height: 260 }}>
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie
@@ -284,15 +395,20 @@ export default function Reports() {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={90}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        innerRadius={32}
+                        outerRadius={58}
+                        label={false}
                       >
                         {paymentData.map((_, i) => (
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Legend />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ fontSize: 12 }} />
+                      <Legend formatter={(value, entry) => {
+                        const total = paymentData.reduce((s, d) => s + d.value, 0)
+                        const pct = total ? ((entry.payload?.value ?? 0) / total * 100).toFixed(0) : '0'
+                        return `${value} ${pct}%`
+                      }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -379,19 +495,17 @@ export default function Reports() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(customerData)
-                      .sort(([, a], [, b]) => b.total - a.total)
-                      .map(([name, data]) => (
-                        <tr key={name}>
-                          <td className="fw-medium">{name}</td>
-                          <td>{data.count}</td>
-                          <td>{formatCurrency(data.total)}</td>
-                        </tr>
-                      ))}
+                    {sortedCustomers.map((row) => (
+                      <tr key={row.name}>
+                        <td className="fw-medium">{row.name}</td>
+                        <td>{row.count}</td>
+                        <td>{formatCurrency(row.total)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-              {Object.keys(customerData).length === 0 && (
+              {customerData.length === 0 && (
                 <div className="p-4 text-center text-muted">No customer data</div>
               )}
             </div>

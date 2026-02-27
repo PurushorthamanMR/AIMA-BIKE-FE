@@ -6,13 +6,13 @@ interface FileUploadFieldProps {
   label: string
   value: string
   onChange: (path: string) => void
-  subfolder?: 'cash' | 'lease' | 'bike-models'
+  subfolder?: 'cash' | 'lease' | 'bike-models' | 'shop'
   fieldName: string
   accept?: string
   className?: string
 }
 
-export function FileUploadField({ label, value, onChange, subfolder = 'cash', fieldName, accept = 'image/*,.pdf', className = 'col-md-6' }: FileUploadFieldProps) {
+export function FileUploadField({ label, value, onChange, subfolder = 'cash' as const, fieldName, accept = 'image/*,.pdf', className = 'col-md-6' }: FileUploadFieldProps) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [isDragging, setIsDragging] = useState(false)

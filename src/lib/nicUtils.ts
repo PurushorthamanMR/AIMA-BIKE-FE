@@ -5,6 +5,23 @@
  *
  * Sri Lankan NIC convention: February is always 29 days for all years.
  */
+
+/** Normalize NIC for validation (remove spaces/dashes, keep digits and trailing letter). */
+export function normalizeNIC(nic: string): string {
+  return (nic || '').trim().replace(/[\s-]/g, '')
+}
+
+/**
+ * Validate Sri Lanka NIC format only.
+ * Old: 9 digits + 1 letter (V or X).
+ * New: 12 digits only.
+ */
+export function isValidSriLankaNIC(nic: string): boolean {
+  const n = normalizeNIC(nic)
+  if (!n) return true // empty is allowed (optional field)
+  return /^\d{9}[VvXx]$/.test(n) || /^\d{12}$/.test(n)
+}
+
 const DAYS_UP_TO_MONTH = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335] // Feb = 29 days
 
 function getDateFromDayOfYear(year: number, dayOfYear: number): { y: number; m: number; d: number } | null {

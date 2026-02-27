@@ -1,21 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useShopDetail } from '@/context/ShopDetailContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getDealerConsignmentNoteById, type DealerConsignmentNoteDto } from '@/lib/dealerConsignmentNoteApi'
-import { ArrowLeft, FileDown } from 'lucide-react'
+import { ArrowLeft, FileDown, Printer } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 
 const PAGE_W = 210
 const MARGIN = 15
-
-// Company details - can be replaced with Shop Details API later
-const COMPANY = {
-  name: 'AIMA Bike',
-  address: '',
-  email: '',
-  tel: '',
-}
 
 const TERMS = [
   'Items are supplied on consignment basis. Ownership remains with the company until sold.',
@@ -25,22 +18,17 @@ const TERMS = [
   'Dealer agrees to settle accounts as per agreed terms.',
 ]
 
-function downloadDealerInvoicePDF(note: DealerConsignmentNoteDto) {
+function buildDealerInvoicePDF(note: DealerConsignmentNoteDto, shopName: string): jsPDF {
   const doc = new jsPDF()
   let y = 15
 
   // Company info - top center
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
-  doc.text(COMPANY.name, PAGE_W / 2, y, { align: 'center' })
-  y += 6
+  doc.text(shopName || 'AIMA Bike', PAGE_W / 2, y, { align: 'center' })
+  y += 8
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  const companyLine2 = [COMPANY.address, COMPANY.email ? `Email: ${COMPANY.email}` : '', COMPANY.tel ? `Tel: ${COMPANY.tel}` : ''].filter(Boolean).join(' / ')
-  if (companyLine2) {
-    doc.text(companyLine2, PAGE_W / 2, y, { align: 'center' })
-    y += 6
-  } else y += 2
 
   // Document title - centered
   doc.setFontSize(14)
@@ -174,15 +162,36 @@ function downloadDealerInvoicePDF(note: DealerConsignmentNoteDto) {
   doc.text(`${dateStr} ${timeStr}`, MARGIN, 288)
   doc.text(`Page 1 of 1`, PAGE_W / 2, 288, { align: 'center' })
   doc.text(`Consignment Note ID - ${note.id.toLocaleString()}`, PAGE_W / 2, 292, { align: 'center' })
-  doc.text('Printed by AIMA Bike POS', PAGE_W - MARGIN, 288, { align: 'right' })
+  doc.text(`Printed by ${shopName || 'AIMA Bike'} POS`, PAGE_W - MARGIN, 288, { align: 'right' })
   doc.setTextColor(0, 0, 0)
+  return doc
+}
 
+function downloadDealerInvoicePDF(note: DealerConsignmentNoteDto, shopName: string) {
+  const doc = buildDealerInvoicePDF(note, shopName)
   doc.save(`Dealer-Consignment-Note-${note.consignmentNoteNo ?? note.id}.pdf`)
+}
+
+function printDealerInvoicePDF(note: DealerConsignmentNoteDto, shopName: string) {
+  const doc = buildDealerInvoicePDF(note, shopName)
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const w = window.open(url, '_blank')
+  if (w) {
+    setTimeout(() => {
+      try { w.print() } catch { /* PDF viewer may block */ }
+      URL.revokeObjectURL(url)
+    }, 800)
+  } else {
+    URL.revokeObjectURL(url)
+  }
 }
 
 export default function DealerInvoiceDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { shopDetail } = useShopDetail()
+  const shopName = shopDetail?.name?.trim() || 'AIMA Bike'
   const [note, setNote] = useState<DealerConsignmentNoteDto | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -198,7 +207,7 @@ export default function DealerInvoiceDetail() {
     getDealerConsignmentNoteById(noteId).then((data) => {
       if (!cancelled) {
         setNote(data ?? null)
-        if (!data) setError('Dealer invoice not found')
+        if (!data) setError('Dealer not found')
         setLoading(false)
       }
     })
@@ -219,7 +228,7 @@ export default function DealerInvoiceDetail() {
         <div className="alert alert-warning">{error || 'Not found'}</div>
         <Button variant="outline" onClick={() => navigate('/dealer-invoice')}>
           <ArrowLeft size={18} className="me-1" />
-          Back to Dealer Invoice
+          Back to Dealer
         </Button>
       </div>
     )
@@ -228,9 +237,13 @@ export default function DealerInvoiceDetail() {
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="mb-0">Dealer Invoice - {note.consignmentNoteNo}</h2>
+        <h2 className="mb-0">Dealer - {note.consignmentNoteNo}</h2>
         <div className="d-flex gap-2">
-          <Button variant="outline" onClick={() => downloadDealerInvoicePDF(note)} style={{ borderColor: 'var(--aima-primary)', color: 'var(--aima-primary)' }}>
+          <Button onClick={() => printDealerInvoicePDF(note, shopName)} style={{ backgroundColor: '#374151', color: '#fff', border: 'none' }}>
+            <Printer size={18} className="me-1" />
+            Print
+          </Button>
+          <Button onClick={() => downloadDealerInvoicePDF(note, shopName)} style={{ backgroundColor: 'var(--aima-primary)', color: '#fff', border: 'none' }}>
             <FileDown size={18} className="me-1" />
             PDF
           </Button>
@@ -241,7 +254,7 @@ export default function DealerInvoiceDetail() {
         </div>
       </div>
 
-      {/* Form on page - same layout as Dealer Invoice add form */}
+      {/* Form on page - same layout as Dealer add form */}
       <div className="card">
         <div className="card-body">
           <h6 className="border-bottom pb-2 mb-3">Header</h6>
