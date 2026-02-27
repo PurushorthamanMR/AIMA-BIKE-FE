@@ -706,7 +706,7 @@ export default function POS() {
                         className="form-control"
                       />
                     </div>
-                    <div className="col-md-6"><label className="form-label">Date of Birth (DD/MM/YYYY)</label><Input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className="form-control" /></div>
+                    <div className="col-md-6"><label className="form-label">Date of Birth (MM/DD/YYYY)</label><Input type="date" value={formData.dateOfBirth} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} className="form-control" /></div>
                   </div>
 
                   <p className="text-muted small mb-3 mt-4">The following details should be filled in by the sales dealer</p>
