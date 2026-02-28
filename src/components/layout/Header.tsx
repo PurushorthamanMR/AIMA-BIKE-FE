@@ -8,9 +8,9 @@ export default function Header() {
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement)
 
   useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
 
   const toggleFullscreen = () => {
@@ -45,7 +45,7 @@ export default function Header() {
           variant="outline"
           size="sm"
           onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit full screen' : 'Full screen (hide URL bar & taskbar)'}
+          title={isFullscreen ? 'Exit full screen' : 'Full screen'}
           style={{ borderColor: 'var(--aima-border)', color: 'var(--aima-secondary)' }}
         >
           {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
