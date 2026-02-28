@@ -16,20 +16,30 @@ export interface ModelPageResponse {
   pageSize: number
 }
 
+/** Get models with pagination (returns full page response) */
 export async function getModelsPage(
   pageNumber = 1,
-  pageSize = 100,
+  pageSize = 10,
   status?: boolean,
-  categoryId?: number
-): Promise<ModelDto[]> {
+  categoryId?: number,
+  name?: string
+): Promise<ModelPageResponse> {
   let url = `/model/getAllPage?pageNumber=${pageNumber}&pageSize=${pageSize}`
   if (status !== undefined && status !== null) url += `&status=${status}`
   if (categoryId != null) url += `&categoryId=${categoryId}`
+  if (name != null && name.trim() !== '') url += `&name=${encodeURIComponent(name.trim())}`
   const res: ApiResponse<ModelPageResponse> = await apiGet<ModelPageResponse>(url)
-  if (res.status && res.responseDto?.content) {
-    return res.responseDto.content
+  if (res.status && res.responseDto) {
+    const d = res.responseDto
+    return {
+      content: d.content ?? [],
+      totalElements: d.totalElements ?? 0,
+      totalPages: d.totalPages ?? 0,
+      pageNumber: d.pageNumber ?? pageNumber,
+      pageSize: d.pageSize ?? pageSize,
+    }
   }
-  return []
+  return { content: [], totalElements: 0, totalPages: 0, pageNumber, pageSize }
 }
 
 export async function getModelsByName(name: string): Promise<ModelDto[]> {

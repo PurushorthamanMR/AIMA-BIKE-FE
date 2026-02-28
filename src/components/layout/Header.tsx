@@ -1,9 +1,25 @@
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
+import { LogOut, Maximize2, Minimize2 } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement)
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.()
+    } else {
+      document.exitFullscreen?.()
+    }
+  }
 
   return (
     <header
@@ -24,15 +40,26 @@ export default function Header() {
           {user?.role}
         </span>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={logout}
-        style={{ borderColor: 'var(--aima-border)', color: 'var(--aima-secondary)' }}
-      >
-        <LogOut size={16} className="me-1" />
-        Logout
-      </Button>
+      <div className="d-flex align-items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit full screen' : 'Full screen (hide URL bar & taskbar)'}
+          style={{ borderColor: 'var(--aima-border)', color: 'var(--aima-secondary)' }}
+        >
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={logout}
+          style={{ borderColor: 'var(--aima-border)', color: 'var(--aima-secondary)' }}
+        >
+          <LogOut size={16} className="me-1" />
+          Logout
+        </Button>
+      </div>
     </header>
   )
 }

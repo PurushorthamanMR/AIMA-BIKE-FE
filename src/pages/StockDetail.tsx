@@ -50,7 +50,7 @@ export default function StockDetail() {
   }, [id])
 
   useEffect(() => {
-    getModelsPage(1, 200, true).then((list) => setModels(list ?? []))
+    getModelsPage(1, 200, true).then((res) => setModels(res.content ?? []))
   }, [])
 
   useEffect(() => {

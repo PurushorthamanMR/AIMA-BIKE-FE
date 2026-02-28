@@ -15,10 +15,15 @@ import EditIcon from '@/components/icons/EditIcon'
 import { FileUploadField } from '@/components/FileUploadField'
 import Swal from 'sweetalert2'
 
+const PAGE_SIZE = 10
+
 export default function BikeModels() {
   const [categories, setCategories] = useState<CategoryDto[]>([])
   const [models, setModels] = useState<ModelDto[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [bikeCategoryId, setBikeCategoryId] = useState<number | null>(null)
 
   // Model form - default categoryId 1, not shown
@@ -30,11 +35,22 @@ export default function BikeModels() {
   const [showModelForm, setShowModelForm] = useState(false)
   const [searchName, setSearchName] = useState('')
 
-  const loadModels = () => {
+  const loadModels = (page = pageNumber) => {
     setLoading(true)
-    getModelsPage(1, 200, undefined, bikeCategoryId ?? undefined)
-      .then((list) => { setModels(list ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
+    getModelsPage(page, PAGE_SIZE, undefined, bikeCategoryId ?? undefined, searchName.trim() || undefined)
+      .then((res) => {
+        setModels(res.content ?? [])
+        setTotalPages(res.totalPages ?? 0)
+        setTotalElements(res.totalElements ?? 0)
+        setPageNumber(res.pageNumber ?? page)
+        setLoading(false)
+      })
+      .catch(() => {
+        setModels([])
+        setTotalPages(0)
+        setTotalElements(0)
+        setLoading(false)
+      })
   }
 
   useEffect(() => {
@@ -50,35 +66,24 @@ export default function BikeModels() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    const catId = bikeCategoryId ?? undefined
-    getModelsPage(1, 200, undefined, catId).then((list) => {
-      if (!cancelled) {
-        setModels(list ?? [])
-        if (catId && list?.length) setModelForm((f) => ({ ...f, categoryId: catId }))
-      }
-      setLoading(false)
-    })
-    return () => { cancelled = true }
+    loadModels(1)
   }, [bikeCategoryId])
 
   const runSearch = () => {
-    const q = searchName.trim()
-    if (!q) {
-      loadModels()
-      return
-    }
-    setLoading(true)
-    getModelsByName(q).then((list) => {
-      setModels(list ?? [])
-      setLoading(false)
-    })
+    setPageNumber(1)
+    loadModels(1)
   }
 
   const clearSearch = () => {
     setSearchName('')
-    loadModels()
+    setPageNumber(1)
+    loadModels(1)
+  }
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return
+    setPageNumber(page)
+    loadModels(page)
   }
 
   useEffect(() => {
@@ -341,6 +346,33 @@ export default function BikeModels() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {!loading && totalPages > 0 && (
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top">
+              <small className="text-muted">
+                Page {pageNumber} of {totalPages} {totalElements > 0 && `(${totalElements} total)`}
+              </small>
+              <div className="d-flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(pageNumber - 1)}
+                  disabled={pageNumber <= 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(pageNumber + 1)}
+                  disabled={pageNumber >= totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
           {!loading && models.length === 0 && <p className="text-muted mb-0">No models. Click Add Model to create one.</p>}

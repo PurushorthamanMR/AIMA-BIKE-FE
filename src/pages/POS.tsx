@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input'
 import { MOCK_PRODUCTS } from '@/data/mockData'
 import { formatCurrency } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Bike, Wrench, Package, Banknote, FileText, Truck } from 'lucide-react'
+import { ArrowLeft, Bike, Wrench, Package, Banknote, FileText, Truck, Search } from 'lucide-react'
 import { saveCustomerWithPaymentOption } from '@/lib/customerApi'
-import { getModelsPage, getModelsByCategory, type ModelDto } from '@/lib/modelApi'
+import { getModelsPage, type ModelDto } from '@/lib/modelApi'
 import { getPaymentByName, getAllPayments, type PaymentDto } from '@/lib/paymentApi'
 import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
 import { getStocksByModel, type StockDto } from '@/lib/stockApi'
@@ -147,12 +147,20 @@ export default function POS() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [loadingModels, setLoadingModels] = useState(false)
   const [loadingStocks, setLoadingStocks] = useState(false)
+  const [modelsPageNumber, setModelsPageNumber] = useState(1)
+  const [modelsTotalPages, setModelsTotalPages] = useState(0)
+  const [modelsTotalElements, setModelsTotalElements] = useState(0)
+  const [modelSearchQuery, setModelSearchQuery] = useState('')
   const [payments, setPayments] = useState<PaymentDto[]>([])
   const [customers, setCustomers] = useState<CustomerDto[]>([])
   const [courierForm, setCourierForm] = useState({ name: '', contactNumber: '', address: '', sentDate: new Date().toISOString().split('T')[0], customerId: 0 })
   const [courierSaveSuccess, setCourierSaveSuccess] = useState(false)
   const [courierSaveError, setCourierSaveError] = useState('')
   const [hoveredColorKey, setHoveredColorKey] = useState<string | null>(null)
+  const [colorPageNumber, setColorPageNumber] = useState(1)
+  const [colorChassisSearch, setColorChassisSearch] = useState('')
+  const [colorMotorSearch, setColorMotorSearch] = useState('')
+  const COLOR_PAGE_SIZE = 15
 
   // Customer Data Sheet validation: Contact & WhatsApp 10 digits only
   const customerFormErrors = useMemo(() => {
@@ -167,18 +175,24 @@ export default function POS() {
 
   const partsProducts = MOCK_PRODUCTS.filter((p) => p.category === 'parts' || p.category === 'accessory')
 
-  // Fetch categories from backend
+  // Fetch all active categories when showing the category cards, so newly added categories always show
   useEffect(() => {
+    if (step !== 'categories') return
     let cancelled = false
     setLoadingCategories(true)
-    getCategoriesPage(1, 100, true).then((list) => {
+    getCategoriesPage(1, 8, true).then((list) => {
       if (!cancelled) {
-        setCategories(list.length > 0 ? list : defaultCategories)
+        setCategories(list?.length ? list : defaultCategories)
       }
       setLoadingCategories(false)
+    }).catch(() => {
+      if (!cancelled) {
+        setCategories(defaultCategories)
+        setLoadingCategories(false)
+      }
     })
     return () => { cancelled = true }
-  }, [])
+  }, [step])
 
   // Auto-calculate Balance Payment = Selling Price - (Advance Payment + Registration Fee)
   useEffect(() => {
@@ -202,18 +216,42 @@ export default function POS() {
       return
     }
     setSelectedCategory(cat)
+    setModelSearchQuery('')
     setLoadingModels(true)
     setModels([])
-    const list = await getModelsByCategory(cat.id)
-    const withStock = await Promise.all(
-      list.map(async (m) => ({ model: m, stocks: await getStocksByModel(m.id) }))
-    )
-    const modelsWithStock = withStock
-      .filter((x) => x.stocks.some((s) => (s.quantity ?? 0) > 0))
-      .map((x) => x.model)
-    setModels(modelsWithStock)
+    const res = await getModelsPage(1, 6, undefined, cat.id)
+    setModels(res.content ?? [])
+    setModelsPageNumber(res.pageNumber ?? 1)
+    setModelsTotalPages(res.totalPages ?? 0)
+    setModelsTotalElements(res.totalElements ?? 0)
     setLoadingModels(false)
     setStep('bike-models')
+  }
+
+  const runModelSearch = () => {
+    if (!selectedCategory) return
+    setLoadingModels(true)
+    const name = modelSearchQuery.trim() || undefined
+    getModelsPage(1, 6, undefined, selectedCategory.id, name).then((res) => {
+      setModels(res.content ?? [])
+      setModelsPageNumber(res.pageNumber ?? 1)
+      setModelsTotalPages(res.totalPages ?? 0)
+      setModelsTotalElements(res.totalElements ?? 0)
+      setLoadingModels(false)
+    })
+  }
+
+  const goToModelsPage = (page: number) => {
+    if (!selectedCategory || page < 1 || page > modelsTotalPages) return
+    setLoadingModels(true)
+    const name = modelSearchQuery.trim() || undefined
+    getModelsPage(page, 6, undefined, selectedCategory.id, name).then((res) => {
+      setModels(res.content ?? [])
+      setModelsPageNumber(res.pageNumber ?? page)
+      setModelsTotalPages(res.totalPages ?? 0)
+      setModelsTotalElements(res.totalElements ?? 0)
+      setLoadingModels(false)
+    })
   }
 
   const handleModelClick = (model: ModelDto) => {
@@ -222,6 +260,9 @@ export default function POS() {
     setFormData((f) => ({ ...f, model: model.name }))
     setLoadingStocks(true)
     setStocks([])
+    setColorPageNumber(1)
+    setColorChassisSearch('')
+    setColorMotorSearch('')
     getStocksByModel(model.id).then((list) => {
       setStocks(list)
       setLoadingStocks(false)
@@ -297,8 +338,8 @@ export default function POS() {
     const registrationFees = parseFloat(formData.registrationFee) || 0
 
     try {
-      const models = await getModelsPage()
-      const modelMatch = models.find((m) => m.name === formData.model || m.name?.toLowerCase().includes(formData.model.toLowerCase()))
+      const modelsRes = await getModelsPage(1, 500)
+      const modelMatch = modelsRes.content.find((m) => m.name === formData.model || m.name?.toLowerCase().includes(formData.model.toLowerCase()))
       if (!modelMatch) {
         setSaveError(`Model "${formData.model}" not found in backend. Please add the model first.`)
         return
@@ -451,7 +492,7 @@ export default function POS() {
 
   return (
     <div className="container-fluid py-4">
-      <h2 className="mb-4">Customer Data Sheet</h2>
+      {step !== 'bike-models' && step !== 'bike-colors' && step !== 'customer-form' && <h2 className="mb-4">Customer Data Sheet</h2>}
 
       {/* Step 1: Categories from backend */}
       {step === 'categories' && (
@@ -459,21 +500,16 @@ export default function POS() {
           {loadingCategories ? (
             <p className="text-muted">Loading categories...</p>
           ) : (
-            categories
-              // Only show Bikes + Services cards (hide Parts / Spare Parts)
-              .filter((cat) => !String(cat.name || '').toLowerCase().includes('part'))
-              .map((cat) => {
+            categories.map((cat) => {
               const name = (cat.name || '').toLowerCase()
-              const icon = name === 'parts' ? <Package size={64} className="mb-3" style={{ color: 'var(--aima-success)' }} /> : name.includes('service') ? <Wrench size={64} className="mb-3" style={{ color: 'var(--aima-accent)' }} /> : <Bike size={64} className="mb-3" style={{ color: 'var(--aima-info)' }} />
-              const desc = name === 'parts' ? 'Spare Parts & Accessories' : name.includes('service') ? 'Repairs & Maintenance' : 'AIMA Electric Scooters'
+              const icon = name === 'parts' ? <Package size={44} /> : name.includes('service') ? <Wrench size={44} /> : <Bike size={44} />
               const cardClass = name === 'parts' ? 'pos-category-card-parts' : name.includes('service') ? 'pos-category-card-service' : 'pos-category-card-bike'
               return (
-                <div key={cat.id} className="col-md-6">
+                <div key={cat.id} className="col-md-6 col-lg-4">
                   <div className={`card pos-category-card ${cardClass} h-100 cursor-pointer`} onClick={() => handleCategoryClick(cat)}>
-                    <div className="card-body text-center py-5">
-                      {icon}
-                      <h4 className="fw-bold" style={{ color: 'var(--aima-secondary)' }}>{cat.name}</h4>
-                      <p className="mb-0" style={{ color: 'var(--aima-muted)' }}>{desc}</p>
+                    <div className="card-body text-center d-flex flex-column align-items-center justify-content-center">
+                      <div className="pos-category-icon-wrap">{icon}</div>
+                      <h4 className="pos-category-title mb-0" style={{ color: 'var(--aima-secondary)' }}>{cat.name}</h4>
                     </div>
                   </div>
                 </div>
@@ -486,7 +522,23 @@ export default function POS() {
       {/* Step 2a: Models from backend */}
       {step === 'bike-models' && (
         <div className="d-flex flex-column" style={{ minHeight: 'calc(100vh - 180px)' }}>
-          <h4 className="mb-3">Select Model</h4>
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <h4 className="mb-0">Select Model</h4>
+            <div className="d-flex align-items-center gap-2">
+              <Input
+                type="text"
+                className="form-control form-control-sm"
+                style={{ width: 200 }}
+                placeholder="Search model..."
+                value={modelSearchQuery}
+                onChange={(e) => setModelSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), runModelSearch())}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={runModelSearch} title="Search">
+                <Search size={18} />
+              </Button>
+            </div>
+          </div>
           {loadingModels ? (
             <p className="text-muted">Loading models...</p>
           ) : models.length === 0 ? (
@@ -524,11 +576,26 @@ export default function POS() {
               ))}
             </div>
           )}
-          <div className="d-flex justify-content-end mt-3 pt-2">
-            <Button variant="outline" onClick={() => { setStep('categories'); setSelectedCategory(null) }}>
-              <ArrowLeft size={18} className="me-1" />
-              Back
-            </Button>
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top">
+            {!loadingModels && modelsTotalPages > 0 ? (
+              <small className="text-muted mb-0">
+                Page {modelsPageNumber} of {modelsTotalPages} {modelsTotalElements > 0 && `(${modelsTotalElements} models)`}
+              </small>
+            ) : (
+              <span />
+            )}
+            <div className="d-flex gap-1">
+              <Button type="button" variant="outline" size="sm" onClick={() => goToModelsPage(modelsPageNumber - 1)} disabled={modelsPageNumber <= 1}>
+                Previous
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => goToModelsPage(modelsPageNumber + 1)} disabled={modelsPageNumber >= modelsTotalPages}>
+                Next
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setStep('categories'); setSelectedCategory(null); setModelsPageNumber(1); setModelSearchQuery('') }}>
+                <ArrowLeft size={18} className="me-1" />
+                Back
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -537,17 +604,50 @@ export default function POS() {
       {step === 'bike-colors' && selectedModel && (
         <>
           <h4 className="mb-2">{selectedModel.name} - Select Color</h4>
+          {!loadingStocks && stocks.length > 0 && (
+            <div className="d-flex flex-wrap align-items-center gap-3 mb-3">
+              <div className="d-flex align-items-center gap-2">
+                <label className="form-label small text-muted mb-0 text-nowrap">Chassis Number</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Search chassis..."
+                  style={{ width: 160 }}
+                  value={colorChassisSearch}
+                  onChange={(e) => { setColorChassisSearch(e.target.value); setColorPageNumber(1) }}
+                />
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <label className="form-label small text-muted mb-0 text-nowrap">Motor Number</label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Search motor..."
+                  style={{ width: 160 }}
+                  value={colorMotorSearch}
+                  onChange={(e) => { setColorMotorSearch(e.target.value); setColorPageNumber(1) }}
+                />
+              </div>
+            </div>
+          )}
           {loadingStocks ? (
             <p className="text-muted">Loading...</p>
           ) : stocks.length === 0 ? (
             <p className="text-muted">No stock/colors found. Add stock in backend for this model.</p>
           ) : (() => {
             const withQty = stocks.filter((s) => (s.quantity ?? 0) > 0)
-            if (withQty.length === 0) {
-              return <p className="text-muted">No stock available. All items have quantity 0.</p>
+            const chassisTrim = colorChassisSearch.trim().toLowerCase()
+            const motorTrim = colorMotorSearch.trim().toLowerCase()
+            const filtered = withQty.filter((s) => {
+              if (chassisTrim && !(s.chassisNumber ?? '').toLowerCase().includes(chassisTrim)) return false
+              if (motorTrim && !(s.motorNumber ?? '').toLowerCase().includes(motorTrim)) return false
+              return true
+            })
+            if (filtered.length === 0) {
+              return <p className="text-muted">No stock matches chassis/motor search. Try different criteria.</p>
             }
             const colorKey = (s: StockDto) => (s.color || '-').trim().toLowerCase()
-            const grouped = withQty.reduce<Record<string, StockDto[]>>((acc, s) => {
+            const grouped = filtered.reduce<Record<string, StockDto[]>>((acc, s) => {
               const key = colorKey(s)
               if (!acc[key]) acc[key] = []
               acc[key].push(s)
@@ -570,10 +670,13 @@ export default function POS() {
               return '#999'
             }
             const hoveredStocks = hoveredColorKey ? (grouped[hoveredColorKey] ?? []).filter((s) => (s.quantity ?? 0) > 0) : []
+            const colorEntries = Object.entries(grouped)
+            const start = (colorPageNumber - 1) * COLOR_PAGE_SIZE
+            const paginatedColorEntries = colorEntries.slice(start, start + COLOR_PAGE_SIZE)
             return (
               <div onMouseLeave={() => setHoveredColorKey(null)}>
-                <div className="row g-3">
-                  {Object.entries(grouped).map(([key, colorStocks]) => {
+                <div className="row g-3 row-cols-5">
+                  {paginatedColorEntries.map(([key, colorStocks]) => {
                     const totalQty = colorStocks.reduce((sum, s) => sum + (s.quantity ?? 0), 0)
                     const colorName = colorStocks[0]?.color || '-'
                     const colorHex = getColorHex(colorName)
@@ -584,7 +687,7 @@ export default function POS() {
                     return (
                       <div
                         key={key}
-                        className="col-md-3 col-lg-2"
+                        className="col"
                         onMouseEnter={() => availableStocks.length > 0 && setHoveredColorKey(key)}
                       >
                         <div
@@ -641,12 +744,56 @@ export default function POS() {
               </div>
             )
           })()}
-          <div className="d-flex justify-content-end mt-4">
-            <Button variant="outline" onClick={() => { setStep('bike-models'); setStocks([]); setHoveredColorKey(null) }}>
-              <ArrowLeft size={18} className="me-1" />
-              Back
-            </Button>
-          </div>
+          {step === 'bike-colors' && stocks.filter((s) => (s.quantity ?? 0) > 0).length > 0 && (() => {
+            const withQty = stocks.filter((s) => (s.quantity ?? 0) > 0)
+            const chassisTrim = colorChassisSearch.trim().toLowerCase()
+            const motorTrim = colorMotorSearch.trim().toLowerCase()
+            const filtered = withQty.filter((s) => {
+              if (chassisTrim && !(s.chassisNumber ?? '').toLowerCase().includes(chassisTrim)) return false
+              if (motorTrim && !(s.motorNumber ?? '').toLowerCase().includes(motorTrim)) return false
+              return true
+            })
+            const colorKey = (s: StockDto) => (s.color || '-').trim().toLowerCase()
+            const grouped = filtered.reduce<Record<string, StockDto[]>>((acc, s) => {
+              const key = colorKey(s)
+              if (!acc[key]) acc[key] = []
+              acc[key].push(s)
+              return acc
+            }, {})
+            const colorEntries = Object.entries(grouped)
+            const totalColorPages = Math.ceil(colorEntries.length / COLOR_PAGE_SIZE) || 1
+            return (
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top">
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  {totalColorPages > 1 && (
+                    <>
+                      <small className="text-muted mb-0">
+                        Page {colorPageNumber} of {totalColorPages} ({colorEntries.length} colors)
+                      </small>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setColorPageNumber((p) => Math.max(1, p - 1))} disabled={colorPageNumber <= 1}>
+                        Previous
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setColorPageNumber((p) => Math.min(totalColorPages, p + 1))} disabled={colorPageNumber >= totalColorPages}>
+                        Next
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setStep('bike-models'); setStocks([]); setHoveredColorKey(null); setColorPageNumber(1); setColorChassisSearch(''); setColorMotorSearch('') }}>
+                  <ArrowLeft size={18} className="me-1" />
+                  Back
+                </Button>
+              </div>
+            )
+          })()}
+          {step === 'bike-colors' && (!stocks.length || stocks.filter((s) => (s.quantity ?? 0) > 0).length === 0) && (
+            <div className="d-flex justify-content-end mt-3 pt-2">
+              <Button variant="outline" size="sm" onClick={() => { setStep('bike-models'); setStocks([]); setHoveredColorKey(null); setColorPageNumber(1); setColorChassisSearch(''); setColorMotorSearch('') }}>
+                <ArrowLeft size={18} className="me-1" />
+                Back
+              </Button>
+            </div>
+          )}
         </>
       )}
 

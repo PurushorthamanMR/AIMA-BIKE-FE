@@ -56,7 +56,8 @@ export default function DealerInvoice() {
   useEffect(() => {
     let cancelled = false
     setLoadingModels(true)
-    getModelsPage(1, 200, true).then((list) => {
+    getModelsPage(1, 200, true).then((res) => {
+      const list = res.content ?? []
       if (!cancelled) setModels(list ?? [])
       setLoadingModels(false)
     })

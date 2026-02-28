@@ -20,8 +20,12 @@ export default function Settings() {
   const showAdminColumn = isAdmin
   const showActionColumn = isAdmin
 
+  const PAGE_SIZE = 10
   const [list, setList] = useState<SettingDto[]>([])
   const [loading, setLoading] = useState(true)
+  const [pageNumber, setPageNumber] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<SettingDto | null>(null)
   const [form, setForm] = useState({ name: '' })
@@ -29,24 +33,40 @@ export default function Settings() {
   const [loadError, setLoadError] = useState('')
   const [searchName, setSearchName] = useState('')
 
-  const load = () => {
+  const load = (page = pageNumber) => {
     setLoading(true)
     setLoadError('')
-    getSettingsAllPagination(1, 500)
+    getSettingsAllPagination(page, PAGE_SIZE, { name: searchName.trim() || undefined })
       .then((res) => {
         setList(res.content ?? [])
+        setTotalPages(res.totalPages ?? 0)
+        setTotalElements(res.totalElements ?? 0)
+        setPageNumber(res.pageNumber ?? page)
         setLoading(false)
       })
       .catch(() => {
         setList([])
+        setTotalPages(0)
+        setTotalElements(0)
         setLoading(false)
         setLoadError('Failed to load settings. Check backend is running.')
       })
   }
 
   useEffect(() => {
-    load()
+    load(1)
   }, [])
+
+  const handleSearch = () => {
+    setPageNumber(1)
+    load(1)
+  }
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return
+    setPageNumber(page)
+    load(page)
+  }
 
   useEffect(() => {
     if (editing) {
@@ -155,13 +175,8 @@ export default function Settings() {
     }
   }
 
-  const filteredBySearch = searchName.trim()
-    ? list.filter((s) => (s.name || '').toLowerCase().includes(searchName.trim().toLowerCase()))
-    : list
   // Manager and Staff see only settings where Admin has turned the feature on
-  const filteredList = isAdmin ? filteredBySearch : filteredBySearch.filter((s) => s.isActiveAdmin !== false)
-
-  const clearSearch = () => setSearchName('')
+  const filteredList = isAdmin ? list : list.filter((s) => s.isActiveAdmin !== false)
 
   return (
     <div className="container-fluid">
@@ -237,13 +252,22 @@ export default function Settings() {
                   placeholder="Search by name..."
                   value={searchName}
                   onChange={(e) => setSearchName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
                 />
-                <Button type="button" variant="outline" size="sm" title="Search by name">
+                <Button type="button" variant="outline" size="sm" title="Search by name" onClick={handleSearch}>
                   <Search size={18} />
                 </Button>
                 {searchName.trim() && (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearSearch}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchName('')
+                      setPageNumber(1)
+                      setTimeout(() => load(1), 0)
+                    }}
+                  >
                     Clear
                   </Button>
                 )}
@@ -312,6 +336,33 @@ export default function Settings() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {!loading && totalPages > 0 && (
+              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top">
+                <small className="text-muted">
+                  Page {pageNumber} of {totalPages} {totalElements > 0 && `(${totalElements} total)`}
+                </small>
+                <div className="d-flex gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(pageNumber - 1)}
+                    disabled={pageNumber <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(pageNumber + 1)}
+                    disabled={pageNumber >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
             {!loading && filteredList.length === 0 && (
