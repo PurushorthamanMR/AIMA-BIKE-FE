@@ -5,6 +5,7 @@ import { useResolvedLogoUrl } from '@/hooks/useResolvedLogoUrl'
 import { useShopDetail } from '@/context/ShopDetailContext'
 import { getSettingsAllPagination } from '@/lib/settingsApi'
 import type { SettingDto } from '@/lib/settingsApi'
+import type { LucideProps } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
@@ -33,7 +34,7 @@ const SIDEBAR_SECTIONS: Array<{ id: SectionId; title: string; subtitle: string }
   { id: 'admin', title: 'Administrative & System', subtitle: '' },
 ]
 
-const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<{ size?: number }>; label: string; settingKey: string; section: SectionId }> = [
+const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<LucideProps>; label: string; settingKey: string; section: SectionId }> = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard', settingKey: 'Dashboard', section: 'overview' },
   { path: '/pos', icon: ShoppingCart, label: 'POS', settingKey: 'Pos', section: 'overview' },
   { path: '/payment', icon: CreditCard, label: 'Payment', settingKey: 'Payment', section: 'overview' },
@@ -188,7 +189,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
                 key={path}
                 to={path}
                 end={path === '/'}
-                className={({ isActive }) =>
+                className={() =>
                   `d-flex align-items-center rounded text-decoration-none mb-1 sidebar-nav-link ${
                     collapsed ? 'justify-content-center px-2 py-2' : 'gap-2 px-3 py-2'
                   } text-white`
