@@ -24,23 +24,32 @@ import {
   Store,
 } from 'lucide-react'
 
-const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<{ size?: number }>; label: string; settingKey: string }> = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard', settingKey: 'Dashboard' },
-  { path: '/profile', icon: User, label: 'Profile', settingKey: 'Profile' },
-  { path: '/pos', icon: ShoppingCart, label: 'POS', settingKey: 'Pos' },
-  { path: '/category', icon: Layers, label: 'Category', settingKey: 'Category' },
-  { path: '/bike-models', icon: Bike, label: 'Models', settingKey: 'Models' },
-  { path: '/stock', icon: Package, label: 'Stock', settingKey: 'Stock' },
-  { path: '/customers', icon: Users, label: 'Customers', settingKey: 'Customer' },
-  { path: '/users', icon: UserCog, label: 'User', settingKey: 'User' },
-  { path: '/payment', icon: CreditCard, label: 'Payment', settingKey: 'Payment' },
-  { path: '/courier', icon: Truck, label: 'Courier', settingKey: 'Courier' },
-  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', settingKey: 'Transfer' },
-  { path: '/dealer-invoice', icon: FileText, label: 'Dealer', settingKey: 'Dealer' },
-  { path: '/reports', icon: BarChart3, label: 'Reports', settingKey: 'Reports' },
-  { path: '/shop-details', icon: Store, label: 'Shop Detail', settingKey: 'ShopDetails' },
-  { path: '/settings', icon: Settings, label: 'Settings', settingKey: 'Settings' },
-  { path: '/database', icon: DatabaseIcon, label: 'Database', settingKey: 'Database' },
+type SectionId = 'overview' | 'inventory' | 'stakeholders' | 'admin'
+
+const SIDEBAR_SECTIONS: Array<{ id: SectionId; title: string; subtitle: string }> = [
+  { id: 'overview', title: 'Overview & Sales', subtitle: 'Daily Operations' },
+  { id: 'inventory', title: 'Inventory Management', subtitle: '' },
+  { id: 'stakeholders', title: 'Stakeholders', subtitle: '' },
+  { id: 'admin', title: 'Administrative & System', subtitle: '' },
+]
+
+const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<{ size?: number }>; label: string; settingKey: string; section: SectionId }> = [
+  { path: '/', icon: LayoutDashboard, label: 'Dashboard', settingKey: 'Dashboard', section: 'overview' },
+  { path: '/pos', icon: ShoppingCart, label: 'POS', settingKey: 'Pos', section: 'overview' },
+  { path: '/payment', icon: CreditCard, label: 'Payment', settingKey: 'Payment', section: 'overview' },
+  { path: '/reports', icon: BarChart3, label: 'Reports', settingKey: 'Reports', section: 'overview' },
+  { path: '/stock', icon: Package, label: 'Stock', settingKey: 'Stock', section: 'inventory' },
+  { path: '/bike-models', icon: Bike, label: 'Models', settingKey: 'Models', section: 'inventory' },
+  { path: '/category', icon: Layers, label: 'Category', settingKey: 'Category', section: 'inventory' },
+  { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', settingKey: 'Transfer', section: 'inventory' },
+  { path: '/customers', icon: Users, label: 'Customers', settingKey: 'Customer', section: 'stakeholders' },
+  { path: '/dealer-invoice', icon: FileText, label: 'Dealer', settingKey: 'Dealer', section: 'stakeholders' },
+  { path: '/courier', icon: Truck, label: 'Courier', settingKey: 'Courier', section: 'stakeholders' },
+  { path: '/profile', icon: User, label: 'Profile', settingKey: 'Profile', section: 'admin' },
+  { path: '/users', icon: UserCog, label: 'User', settingKey: 'User', section: 'admin' },
+  { path: '/shop-details', icon: Store, label: 'Shop Detail', settingKey: 'ShopDetails', section: 'admin' },
+  { path: '/settings', icon: Settings, label: 'Settings', settingKey: 'Settings', section: 'admin' },
+  { path: '/database', icon: DatabaseIcon, label: 'Database', settingKey: 'Database', section: 'admin' },
 ]
 
 const STAFF_NO_ACCESS_KEYS = ['user', 'database']
@@ -111,6 +120,12 @@ export default function Sidebar({ collapsed }: SidebarProps) {
     return orderA - orderB
   })
 
+  // Group items by section (order from SIDEBAR_SECTIONS)
+  const itemsBySection = SIDEBAR_SECTIONS.map((sec) => ({
+    ...sec,
+    items: filteredItems.filter((item) => item.section === sec.id),
+  })).filter((g) => g.items.length > 0)
+
   const width = collapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)'
 
   return (
@@ -151,25 +166,44 @@ export default function Sidebar({ collapsed }: SidebarProps) {
         )}
       </div>
       <nav className="p-2 grow">
-        {filteredItems.map(({ path, icon: Icon, label }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === '/'}
-            className={({ isActive }) =>
-              `d-flex align-items-center rounded text-decoration-none mb-1 sidebar-nav-link ${
-                collapsed ? 'justify-content-center px-2 py-2' : 'gap-2 px-3 py-2'
-              } text-white`
-            }
-            style={({ isActive }) => ({
-              backgroundColor: isActive ? 'var(--aima-primary)' : 'transparent',
-              color: 'white',
-            })}
-            title={collapsed ? label : undefined}
-          >
-            <Icon size={20} className="shrink-0" />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
+        {itemsBySection.map((group, groupIndex) => (
+          <div key={group.id} className="mb-3">
+            {!collapsed && (
+              <div className="px-3 py-1 mb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+                <div className="text-uppercase small fw-semibold" style={{ color: '#E31C79', letterSpacing: '0.02em' }}>
+                  {group.title}
+                </div>
+                {group.subtitle && (
+                  <div className="small" style={{ color: 'rgba(227,28,121,0.85)', fontSize: '0.7rem' }}>
+                    {group.subtitle}
+                  </div>
+                )}
+              </div>
+            )}
+            {collapsed && groupIndex > 0 && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', marginTop: 4, marginBottom: 4 }} />
+            )}
+            {group.items.map(({ path, icon: Icon, label }) => (
+              <NavLink
+                key={path}
+                to={path}
+                end={path === '/'}
+                className={({ isActive }) =>
+                  `d-flex align-items-center rounded text-decoration-none mb-1 sidebar-nav-link ${
+                    collapsed ? 'justify-content-center px-2 py-2' : 'gap-2 px-3 py-2'
+                  } text-white`
+                }
+                style={({ isActive }) => ({
+                  backgroundColor: isActive ? 'var(--aima-primary)' : 'transparent',
+                  color: 'white',
+                })}
+                title={collapsed ? label : undefined}
+              >
+                <Icon size={20} className="shrink-0" />
+                {!collapsed && <span>{label}</span>}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
     </aside>

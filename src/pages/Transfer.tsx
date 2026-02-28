@@ -286,9 +286,12 @@ export default function Transfer() {
         setViewTransfer(data)
         setEditingTransferId(data.id)
         setIsViewMode(false)
+        const contactStr = data.contactNumber != null ? String(data.contactNumber) : ''
+        // API returns number so leading zero is lost (e.g. 0765947337 -> 765947337). Pad 9 digits with leading 0.
+        const contactNumber = contactStr.length === 9 ? '0' + contactStr : contactStr
         setForm({
           companyName: data.companyName ?? '',
-          contactNumber: data.contactNumber != null ? String(data.contactNumber) : '',
+          contactNumber,
           address: data.address ?? '',
           deliveryDetails: data.deliveryDetails ?? '',
           nic: data.nic ?? '',
@@ -308,16 +311,13 @@ export default function Transfer() {
     setFormErrors({})
     if (!validateForm()) return
     if (editingTransferId != null) {
-      const parseNum = (s: string) => {
-        const n = parseInt(String(s || ''), 10)
-        return !isNaN(n) ? n : undefined
-      }
+      const contactNum = form.contactNumber.trim() || undefined
       const result = await updateTransfer({
         id: editingTransferId,
         companyName: form.companyName.trim(),
         address: form.address.trim(),
         deliveryDetails: form.deliveryDetails.trim(),
-        contactNumber: parseNum(form.contactNumber),
+        contactNumber: contactNum,
         nic: form.nic.trim() || null,
       })
       if (result.success) {
@@ -344,16 +344,13 @@ export default function Transfer() {
       setSaveError('Add at least one stock line with a selected stock.')
       return
     }
-    const parseNum = (s: string) => {
-      const n = parseInt(String(s || ''), 10)
-      return !isNaN(n) ? n : undefined
-    }
+    const contactNum = form.contactNumber.trim() || undefined
     const result = await saveTransfer({
       userId,
       companyName: form.companyName.trim(),
       address: form.address.trim(),
       deliveryDetails: form.deliveryDetails.trim(),
-      contactNumber: parseNum(form.contactNumber) ?? undefined,
+      contactNumber: contactNum,
       nic: form.nic.trim() || null,
       transferList: validLines.map((line) => ({ stockId: line.stockId, quantity: 1 })),
     })
@@ -446,7 +443,7 @@ export default function Transfer() {
                   </tr>
                 </thead>
                 <tbody>
-                  {viewTransfer.transferList.map((line, idx) => (
+                  {(viewTransfer.transferList ?? []).map((line, idx) => (
                     <tr key={line.id ?? idx}>
                       <td>{line.stockDto?.modelDto?.name ?? '-'}</td>
                       <td>{line.stockDto?.itemCode ?? '-'}</td>
@@ -492,7 +489,12 @@ export default function Transfer() {
                 <Input
                   type="tel"
                   value={form.contactNumber}
-                  onChange={(e) => setForm({ ...form, contactNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 10)
+                    setForm({ ...form, contactNumber: v })
+                    if (saveError && v.length === 10) setSaveError('')
+                    if (v.length === 10) setFormErrors((prev) => ({ ...prev, contactNumber: undefined }))
+                  }}
                   placeholder="10 digits"
                   className="form-control"
                 />
@@ -539,7 +541,7 @@ export default function Transfer() {
                         </tr>
                       </thead>
                       <tbody>
-                        {viewTransfer.transferList.map((line, idx) => (
+                        {(viewTransfer.transferList ?? []).map((line, idx) => (
                           <tr key={line.id ?? idx}>
                             <td>{line.stockDto?.modelDto?.name ?? '-'}</td>
                             <td>{line.stockDto?.itemCode ?? '-'}</td>

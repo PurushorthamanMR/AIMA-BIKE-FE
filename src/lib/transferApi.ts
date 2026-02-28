@@ -20,7 +20,7 @@ export interface TransferDto {
   id: number
   userId: number
   companyName: string
-  contactNumber?: number
+  contactNumber?: number | string
   address: string
   deliveryDetails: string
   nic?: string | null
@@ -34,7 +34,7 @@ export async function saveTransfer(data: {
   companyName: string
   address: string
   deliveryDetails: string
-  contactNumber?: number
+  contactNumber?: string
   nic?: string | null
   transferList: Array<{ stockId: number; quantity?: number }>
 }): Promise<{ success: boolean; error?: string }> {
@@ -81,7 +81,7 @@ export async function updateTransfer(data: {
   companyName?: string
   address?: string
   deliveryDetails?: string
-  contactNumber?: number
+  contactNumber?: string
   nic?: string | null
   userId?: number
   isActive?: boolean

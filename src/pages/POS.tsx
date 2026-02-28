@@ -459,13 +459,16 @@ export default function POS() {
           {loadingCategories ? (
             <p className="text-muted">Loading categories...</p>
           ) : (
-            categories.map((cat) => {
+            categories
+              // Only show Bikes + Services cards (hide Parts / Spare Parts)
+              .filter((cat) => !String(cat.name || '').toLowerCase().includes('part'))
+              .map((cat) => {
               const name = (cat.name || '').toLowerCase()
               const icon = name === 'parts' ? <Package size={64} className="mb-3" style={{ color: 'var(--aima-success)' }} /> : name.includes('service') ? <Wrench size={64} className="mb-3" style={{ color: 'var(--aima-accent)' }} /> : <Bike size={64} className="mb-3" style={{ color: 'var(--aima-info)' }} />
               const desc = name === 'parts' ? 'Spare Parts & Accessories' : name.includes('service') ? 'Repairs & Maintenance' : 'AIMA Electric Scooters'
               const cardClass = name === 'parts' ? 'pos-category-card-parts' : name.includes('service') ? 'pos-category-card-service' : 'pos-category-card-bike'
               return (
-                <div key={cat.id} className="col-md-4">
+                <div key={cat.id} className="col-md-6">
                   <div className={`card pos-category-card ${cardClass} h-100 cursor-pointer`} onClick={() => handleCategoryClick(cat)}>
                     <div className="card-body text-center py-5">
                       {icon}
@@ -905,7 +908,7 @@ export default function POS() {
             <div className="card">
               <div className="card-body text-center py-5">
                 <h5 className="text-success">Courier Saved!</h5>
-                <p className="text-muted mb-3">Courier saved successfully. Table la Courier page la show aagum.</p>
+                <p className="text-muted mb-3">Courier saved successfully. It will appear in the table on the Courier page.</p>
                 <div className="d-flex gap-2 justify-content-center flex-wrap">
                   <Button variant="outline" onClick={handleBackToCategories}>
                     <ArrowLeft size={18} className="me-1" />
