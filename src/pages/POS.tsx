@@ -161,6 +161,8 @@ export default function POS() {
   const [colorChassisSearch, setColorChassisSearch] = useState('')
   const [colorMotorSearch, setColorMotorSearch] = useState('')
   const COLOR_PAGE_SIZE = 15
+  // For bike-like categories: categoryId -> true if has at least one model
+  const [categoryHasModels, setCategoryHasModels] = useState<Record<number, boolean>>({})
 
   // Customer Data Sheet validation: Contact & WhatsApp 10 digits only
   const customerFormErrors = useMemo(() => {
@@ -175,24 +177,61 @@ export default function POS() {
 
   const partsProducts = MOCK_PRODUCTS.filter((p) => p.category === 'parts' || p.category === 'accessory')
 
-  // Fetch all active categories when showing the category cards, so newly added categories always show
+  // Only show categories that are active AND have data (Bike = has models, Parts = has products, Service = always)
+  const visibleCategories = useMemo(() => {
+    return categories.filter((cat) => {
+      const name = (cat.name || '').toLowerCase()
+      if (name.includes('service')) return true
+      if (name === 'parts') return partsProducts.length > 0
+      // Bike-like: only show if we've confirmed it has at least one model
+      if (categoryHasModels[cat.id] === true) return true
+      if (categoryHasModels[cat.id] === false) return false
+      // Still loading model count for this category – hide until we know
+      return false
+    })
+  }, [categories, partsProducts.length, categoryHasModels])
+
+  // Fetch categories: only show active (isActive !== false), and only show if they have data
   useEffect(() => {
     if (step !== 'categories') return
     let cancelled = false
     setLoadingCategories(true)
+    setCategoryHasModels({})
     getCategoriesPage(1, 8, true).then((list) => {
       if (!cancelled) {
-        setCategories(list?.length ? list : defaultCategories)
+        const raw = list?.length ? list : defaultCategories
+        const activeOnly = raw.filter((c) => c.isActive !== false)
+        setCategories(activeOnly)
       }
       setLoadingCategories(false)
     }).catch(() => {
       if (!cancelled) {
-        setCategories(defaultCategories)
+        const activeOnly = defaultCategories.filter((c) => c.isActive !== false)
+        setCategories(activeOnly)
         setLoadingCategories(false)
       }
     })
     return () => { cancelled = true }
   }, [step])
+
+  // For each bike-like category, check if it has at least one model (so we can hide empty categories)
+  useEffect(() => {
+    if (step !== 'categories' || categories.length === 0) return
+    const bikeLikeCategories = categories.filter((c) => {
+      const name = (c.name || '').toLowerCase()
+      return name !== 'parts' && !name.includes('service')
+    })
+    if (bikeLikeCategories.length === 0) return
+    let cancelled = false
+    bikeLikeCategories.forEach((cat) => {
+      getModelsPage(1, 1, undefined, cat.id).then((res) => {
+        if (!cancelled) {
+          setCategoryHasModels((prev) => ({ ...prev, [cat.id]: (res.totalElements ?? 0) > 0 }))
+        }
+      })
+    })
+    return () => { cancelled = true }
+  }, [step, categories])
 
   // Auto-calculate Balance Payment = Selling Price - (Advance Payment + Registration Fee)
   useEffect(() => {
@@ -499,8 +538,10 @@ export default function POS() {
         <div className="row g-4">
           {loadingCategories ? (
             <p className="text-muted">Loading categories...</p>
+          ) : visibleCategories.length === 0 ? (
+            <p className="text-muted">No active categories with data. Turn on categories in Settings or add models/products.</p>
           ) : (
-            categories.map((cat) => {
+            visibleCategories.map((cat) => {
               const name = (cat.name || '').toLowerCase()
               const icon = name === 'parts' ? <Package size={44} /> : name.includes('service') ? <Wrench size={44} /> : <Bike size={44} />
               const cardClass = name === 'parts' ? 'pos-category-card-parts' : name.includes('service') ? 'pos-category-card-service' : 'pos-category-card-bike'
