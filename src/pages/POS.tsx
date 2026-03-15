@@ -234,7 +234,17 @@ export default function POS() {
       }
       const stock = await getStockByBarcode(q)
       if (!cancelled) {
-        setBarcodeStockPreview(stock)
+        // If stock exists but quantity is 0, show alert and do not allow selection
+        if (stock && (stock.quantity ?? 0) <= 0) {
+          setBarcodeStockPreview(null)
+          await Swal.fire({
+            icon: 'info',
+            title: 'Stock is Sold',
+            text: 'This vehicle has already been sold. Please scan another barcode.',
+          })
+          return
+        }
+        setBarcodeStockPreview(stock ?? null)
         if (stock?.modelDto) {
           const m = stock.modelDto
           setSelectedModel({

@@ -18,6 +18,7 @@ export default function StockDetail() {
   const [form, setForm] = useState({
     modelId: 0,
     itemCode: '',
+    barcode: '',
     chassisNumber: '',
     motorNumber: '',
     color: '',
@@ -38,6 +39,7 @@ export default function StockDetail() {
           setForm({
             modelId: data.modelId ?? 0,
             itemCode: data.itemCode ?? '',
+            barcode: data.barcode ?? '',
             chassisNumber: data.chassisNumber ?? '',
             motorNumber: data.motorNumber ?? '',
             color: data.color ?? '',
@@ -118,6 +120,7 @@ export default function StockDetail() {
         title: 'Updated',
         text: 'Stock updated successfully.',
       })
+      navigate('/stock')
     } else {
       setError(res.error ?? 'Update failed')
       await Swal.fire({
@@ -180,6 +183,43 @@ export default function StockDetail() {
               <div className="col-md-6">
                 <label className="form-label">Item Code</label>
                 <Input value={form.itemCode} onChange={(e) => setForm({ ...form, itemCode: e.target.value })} className="form-control" placeholder="Item code" />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">Barcode</label>
+                <div className="d-flex gap-2">
+                  <Input value={form.barcode} readOnly className="form-control bg-light" placeholder="Barcode (auto-generated)" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!stock) return
+                      const result = await Swal.fire({
+                        title: 'Edit Barcode',
+                        input: 'text',
+                        inputValue: form.barcode,
+                        showCancelButton: true,
+                        confirmButtonText: 'Save',
+                        cancelButtonText: 'Cancel',
+                        inputValidator: (value) => {
+                          if (!value || !value.trim()) return 'Barcode cannot be empty'
+                          return null
+                        },
+                      })
+                      if (!result.isConfirmed || !result.value) return
+                      const newBarcode = result.value.trim()
+                      const res = await updateStock({ id: stock.id, barcode: newBarcode })
+                      if (res.success) {
+                        setForm((f) => ({ ...f, barcode: newBarcode }))
+                        setStock({ ...stock, barcode: newBarcode })
+                        await Swal.fire({ icon: 'success', title: 'Updated', text: 'Barcode updated successfully.' })
+                      } else {
+                        await Swal.fire({ icon: 'error', title: 'Update failed', text: res.error ?? 'Failed to update barcode' })
+                      }
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </div>
               </div>
               <div className="col-md-6">
                 <label className="form-label">Chassis Number</label>

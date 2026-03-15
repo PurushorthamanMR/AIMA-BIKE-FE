@@ -89,6 +89,7 @@ export async function updateStock(data: {
   noteId?: number
   modelId?: number
   itemCode?: string
+  barcode?: string
   chassisNumber?: string
   motorNumber?: string
   color?: string
