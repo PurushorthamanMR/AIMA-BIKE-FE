@@ -9,7 +9,7 @@ import { saveCustomerWithPaymentOption } from '@/lib/customerApi'
 import { getModelsPage, type ModelDto } from '@/lib/modelApi'
 import { getPaymentByName, getAllPayments, type PaymentDto } from '@/lib/paymentApi'
 import { getCategoriesPage, type CategoryDto } from '@/lib/categoryApi'
-import { getStocksByModel, type StockDto } from '@/lib/stockApi'
+import { getStocksByModel, getStockByBarcode, type StockDto } from '@/lib/stockApi'
 import Swal from 'sweetalert2'
 import { FileUploadField } from '@/components/FileUploadField'
 import { ModelImage } from '@/components/ModelImage'
@@ -161,6 +161,8 @@ export default function POS() {
   const [colorChassisSearch, setColorChassisSearch] = useState('')
   const [colorMotorSearch, setColorMotorSearch] = useState('')
   const COLOR_PAGE_SIZE = 15
+  const [barcodeStockPreview, setBarcodeStockPreview] = useState<StockDto | null>(null)
+  const [fromBarcodeFlow, setFromBarcodeFlow] = useState(false)
   // For bike-like categories: categoryId -> true if has at least one model
   const [categoryHasModels, setCategoryHasModels] = useState<Record<number, boolean>>({})
 
@@ -214,6 +216,43 @@ export default function POS() {
     return () => { cancelled = true }
   }, [step])
 
+  // Live barcode lookup in model search (POS Select Model)
+  useEffect(() => {
+    if (step !== 'bike-models') return
+    const q = modelSearchQuery.trim()
+    if (!q) {
+      setBarcodeStockPreview(null)
+      return
+    }
+    let cancelled = false
+    const timeoutId = setTimeout(async () => {
+      // Only treat as barcode search if input is mostly digits and reasonably long
+      const isProbablyBarcode = /^\d{6,}$/.test(q)
+      if (!isProbablyBarcode) {
+        if (!cancelled) setBarcodeStockPreview(null)
+        return
+      }
+      const stock = await getStockByBarcode(q)
+      if (!cancelled) {
+        setBarcodeStockPreview(stock)
+        if (stock?.modelDto) {
+          const m = stock.modelDto
+          setSelectedModel({
+            id: m.id,
+            name: m.name,
+            categoryId: m.categoryId,
+            imageUrl: m.imageUrl,
+            isActive: m.isActive,
+          })
+        }
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
+  }, [step, modelSearchQuery])
+
   // For each bike-like category, check if it has at least one model (so we can hide empty categories)
   useEffect(() => {
     if (step !== 'categories' || categories.length === 0) return
@@ -224,7 +263,8 @@ export default function POS() {
     if (bikeLikeCategories.length === 0) return
     let cancelled = false
     bikeLikeCategories.forEach((cat) => {
-      getModelsPage(1, 1, undefined, cat.id).then((res) => {
+      // Only count active models for category visibility
+      getModelsPage(1, 1, true, cat.id).then((res) => {
         if (!cancelled) {
           setCategoryHasModels((prev) => ({ ...prev, [cat.id]: (res.totalElements ?? 0) > 0 }))
         }
@@ -258,7 +298,8 @@ export default function POS() {
     setModelSearchQuery('')
     setLoadingModels(true)
     setModels([])
-    const res = await getModelsPage(1, 6, undefined, cat.id)
+    // Only load active models for POS selection
+    const res = await getModelsPage(1, 6, true, cat.id)
     setModels(res.content ?? [])
     setModelsPageNumber(res.pageNumber ?? 1)
     setModelsTotalPages(res.totalPages ?? 0)
@@ -267,16 +308,31 @@ export default function POS() {
     setStep('bike-models')
   }
 
-  const runModelSearch = () => {
+  const applyStockToForm = (stock: StockDto) => {
+    setSelectedStock(stock)
+    setFormData((f) => ({
+      ...f,
+      model: stock.modelDto?.name ?? f.model,
+      colourOfVehicle: stock.color || '-',
+      sellingPrice: String(stock.sellingAmount ?? 0),
+      chassisNumber: stock.chassisNumber ?? f.chassisNumber ?? '',
+      motorNumber: stock.motorNumber ?? f.motorNumber ?? '',
+    }))
+  }
+
+  const runModelSearch = async () => {
     if (!selectedCategory) return
+    const query = modelSearchQuery.trim()
+    // Normal name search on active models (barcode handled live via effect)
     setLoadingModels(true)
-    const name = modelSearchQuery.trim() || undefined
-    getModelsPage(1, 6, undefined, selectedCategory.id, name).then((res) => {
+    const name = query || undefined
+    getModelsPage(1, 6, true, selectedCategory.id, name).then((res) => {
       setModels(res.content ?? [])
       setModelsPageNumber(res.pageNumber ?? 1)
       setModelsTotalPages(res.totalPages ?? 0)
       setModelsTotalElements(res.totalElements ?? 0)
       setLoadingModels(false)
+      setBarcodeStockPreview(null)
     })
   }
 
@@ -284,7 +340,8 @@ export default function POS() {
     if (!selectedCategory || page < 1 || page > modelsTotalPages) return
     setLoadingModels(true)
     const name = modelSearchQuery.trim() || undefined
-    getModelsPage(page, 6, undefined, selectedCategory.id, name).then((res) => {
+    // Paginate only active models
+    getModelsPage(page, 6, true, selectedCategory.id, name).then((res) => {
       setModels(res.content ?? [])
       setModelsPageNumber(res.pageNumber ?? page)
       setModelsTotalPages(res.totalPages ?? 0)
@@ -296,6 +353,7 @@ export default function POS() {
   const handleModelClick = (model: ModelDto) => {
     setSelectedModel(model)
     setSelectedStock(null)
+    setFromBarcodeFlow(false)
     setFormData((f) => ({ ...f, model: model.name }))
     setLoadingStocks(true)
     setStocks([])
@@ -319,6 +377,7 @@ export default function POS() {
       chassisNumber: stock.chassisNumber ?? f.chassisNumber ?? '',
       motorNumber: stock.motorNumber ?? f.motorNumber ?? '',
     }))
+    setFromBarcodeFlow(false)
     setStep('customer-form')
   }
 
@@ -570,7 +629,7 @@ export default function POS() {
                 type="text"
                 className="form-control form-control-sm"
                 style={{ width: 200 }}
-                placeholder="Search model..."
+                placeholder="Search model or scan barcode..."
                 value={modelSearchQuery}
                 onChange={(e) => setModelSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), runModelSearch())}
@@ -580,6 +639,51 @@ export default function POS() {
               </Button>
             </div>
           </div>
+          {barcodeStockPreview && (
+            <div className="card mb-3 border-primary">
+              <div className="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div className="d-flex align-items-center gap-3">
+                  <div style={{ width: 120, height: 70, overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
+                    <ModelImage
+                      imageUrl={barcodeStockPreview.modelDto?.imageUrl}
+                      alt={barcodeStockPreview.modelDto?.name ?? ''}
+                      className="w-100 h-100"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  </div>
+                  <div className="small">
+                    <div><strong>Model:</strong> {barcodeStockPreview.modelDto?.name ?? '-'}</div>
+                    <div><strong>Color:</strong> {barcodeStockPreview.color ?? '-'}</div>
+                    <div><strong>Barcode:</strong> {barcodeStockPreview.barcode ?? '-'}</div>
+                    <div><strong>Chassis:</strong> {barcodeStockPreview.chassisNumber ?? '-'}</div>
+                    <div><strong>Motor:</strong> {barcodeStockPreview.motorNumber ?? '-'}</div>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  style={{ backgroundColor: 'var(--aima-primary)' }}
+                  onClick={async () => {
+                    if (!barcodeStockPreview) return
+                    const result = await Swal.fire({
+                      title: 'Use this vehicle?',
+                      text: 'This will fill the customer form with this vehicle details.',
+                      icon: 'question',
+                      showCancelButton: true,
+                      confirmButtonText: 'Yes, continue',
+                      cancelButtonText: 'Cancel',
+                    })
+                    if (result.isConfirmed) {
+                      applyStockToForm(barcodeStockPreview)
+                      setFromBarcodeFlow(true)
+                      setStep('customer-form')
+                    }
+                  }}
+                >
+                  Use This Vehicle
+                </Button>
+              </div>
+            </div>
+          )}
           {loadingModels ? (
             <p className="text-muted">Loading models...</p>
           ) : models.length === 0 ? (
@@ -918,9 +1022,31 @@ export default function POS() {
                   </div>
                 </div>
                 <div className="card-footer d-flex justify-content-between align-items-center">
-                  <Button variant="outline" type="button" onClick={() => setStep('bike-colors')}>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => {
+                      if (fromBarcodeFlow) {
+                        // Cancel barcode flow: go back to Select Model and clear selection
+                        setStep('bike-models')
+                        setBarcodeStockPreview(null)
+                        setSelectedStock(null)
+                        setFormData((f) => ({
+                          ...f,
+                          model: '',
+                          colourOfVehicle: '',
+                          sellingPrice: '',
+                          chassisNumber: '',
+                          motorNumber: '',
+                        }))
+                        setFromBarcodeFlow(false)
+                      } else {
+                        setStep('bike-colors')
+                      }
+                    }}
+                  >
                     <ArrowLeft size={18} className="me-1" />
-                    Back
+                    {fromBarcodeFlow ? 'Cancel' : 'Back'}
                   </Button>
                   <Button type="submit" style={{ backgroundColor: 'var(--aima-primary)' }} disabled={hasCustomerFormErrors}>
                     Next

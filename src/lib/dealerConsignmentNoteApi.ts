@@ -6,6 +6,7 @@ export interface DealerConsignmentNoteItemDto {
   modelId: number
   stockId?: number
   itemCode?: string
+  barcode?: string
   chassisNumber?: string
   motorNumber?: string
   color?: string

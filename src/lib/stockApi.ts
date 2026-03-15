@@ -5,6 +5,7 @@ export interface StockDto {
   noteId?: number
   modelId: number
   itemCode?: string
+  barcode?: string
   chassisNumber?: string
   motorNumber?: string
   color?: string
@@ -19,6 +20,14 @@ export interface StockPageResponse {
   totalPages: number
   pageNumber: number
   pageSize: number
+}
+
+export async function getStockByBarcode(barcode: string): Promise<StockDto | null> {
+  const res = await apiGet<StockDto>(`/stock/getByBarcode?barcode=${encodeURIComponent(barcode)}`)
+  if (res.status && res.responseDto) {
+    return res.responseDto
+  }
+  return null
 }
 
 export async function getStocksByModel(modelId: number): Promise<StockDto[]> {
