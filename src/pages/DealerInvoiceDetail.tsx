@@ -301,7 +301,7 @@ export default function DealerInvoiceDetail() {
           {note.items && note.items.length > 0 ? (
             note.items.map((it, idx) => (
               <div key={it.id ?? idx} className="row g-2 align-items-end mb-2 p-2 border rounded">
-                <div className="col-md-3">
+                <div className="col-md-2">
                   <label className="form-label small">Model</label>
                   <Input value={it.modelDto?.name ?? '-'} readOnly className="form-control form-control-sm bg-light" />
                 </div>
@@ -320,6 +320,10 @@ export default function DealerInvoiceDetail() {
                 <div className="col-md-2">
                   <label className="form-label small">Motor Number</label>
                   <Input value={it.motorNumber ?? ''} readOnly className="form-control form-control-sm bg-light" />
+                </div>
+                <div className="col-md-1">
+                  <label className="form-label small">Barcode</label>
+                  <Input value={it.barcode ?? ''} readOnly className="form-control form-control-sm bg-light" />
                 </div>
                 <div className="col-md-1">
                   <label className="form-label small">Qty</label>

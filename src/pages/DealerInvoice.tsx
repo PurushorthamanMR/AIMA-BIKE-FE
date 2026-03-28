@@ -17,6 +17,7 @@ interface FormItem {
   itemCode?: string
   chassisNumber?: string
   motorNumber?: string
+  barcode?: string
 }
 
 const emptyForm = {
@@ -142,6 +143,7 @@ export default function DealerInvoice() {
             itemCode: code,
             chassisNumber: it.chassisNumber ?? '',
             motorNumber: it.motorNumber ?? '',
+            barcode: it.barcode ?? '',
           }
         })
       : [{ modelId: 0, quantity: 1 }]
@@ -168,6 +170,7 @@ export default function DealerInvoice() {
       const colorFull = (it.color ?? '').trim().toUpperCase()
       const colorShort = colorFull.length > 5 ? colorFull.substring(0, 5) : colorFull
       const itemCodeCombined = code && colorShort ? `${code}-${colorShort}` : code || undefined
+      const barcodeTrim = (it.barcode ?? '').trim()
       return {
         modelId: it.modelId,
         quantity: it.quantity || 1,
@@ -175,6 +178,7 @@ export default function DealerInvoice() {
         itemCode: itemCodeCombined,
         chassisNumber: it.chassisNumber?.trim() || undefined,
         motorNumber: it.motorNumber?.trim() || undefined,
+        ...(barcodeTrim ? { barcode: barcodeTrim } : {}),
       }
     })
 
@@ -310,7 +314,7 @@ export default function DealerInvoice() {
               const dup = getItemDuplicateErrors(idx)
               return (
                 <div key={idx} className="row g-2 align-items-end mb-2 p-2 border rounded">
-                  <div className="col-md-3">
+                  <div className="col-md-2">
                     <label className="form-label small">Model *</label>
                     <select
                       className="form-select form-select-sm"
@@ -342,8 +346,18 @@ export default function DealerInvoice() {
                     <Input value={it.motorNumber ?? ''} onChange={(e) => updateItem(idx, { motorNumber: e.target.value })} placeholder="Motor" className="form-control form-control-sm" />
                     {dup.motor && <p className="text-danger small mb-0 mt-1">Motor number is duplicate in this invoice.</p>}
                   </div>
-                  <div className="col-md-1">
-                    <Button type="button" variant="outline" size="sm" className="p-1" onClick={() => removeItem(idx)} title="Remove">
+                  <div className="col-md-2 d-flex gap-1 align-items-end">
+                    <div className="flex-grow-1 min-w-0">
+                      <label className="form-label small">Barcode</label>
+                      <Input
+                        value={it.barcode ?? ''}
+                        onChange={(e) => updateItem(idx, { barcode: e.target.value })}
+                        placeholder="Blank = auto on save"
+                        className="form-control form-control-sm"
+                        title="Leave blank to auto-generate; enter a value to save it"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" size="sm" className="p-1 flex-shrink-0 mb-0" onClick={() => removeItem(idx)} title="Remove">
                       <Trash2 size={18} className="text-danger" />
                     </Button>
                   </div>

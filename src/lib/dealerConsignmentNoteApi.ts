@@ -52,6 +52,7 @@ export async function updateDealerConsignmentNote(data: {
     modelId: number
     id?: number
     itemCode?: string
+    barcode?: string
     chassisNumber?: string
     motorNumber?: string
     color?: string
@@ -77,6 +78,7 @@ export async function saveDealerConsignmentNote(data: {
     modelId: number
     stockId?: number
     itemCode?: string
+    barcode?: string
     chassisNumber?: string
     motorNumber?: string
     color?: string
