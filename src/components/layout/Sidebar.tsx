@@ -53,7 +53,7 @@ const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<LucideProps>; 
   { path: '/database', icon: DatabaseIcon, label: 'Database', settingKey: 'Database', section: 'admin' },
 ]
 
-const STAFF_NO_ACCESS_KEYS = ['user', 'database']
+const STAFF_NO_ACCESS_KEYS = ['user', 'database', 'settings']
 
 function settingsMap(list: SettingDto[]): Map<string, { isActiveAdmin: boolean; isActiveManager: boolean }> {
   const map = new Map<string, { isActiveAdmin: boolean; isActiveManager: boolean }>()
