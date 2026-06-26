@@ -283,13 +283,13 @@ export default function POS() {
     return () => { cancelled = true }
   }, [step, categories])
 
-  // Auto-calculate Balance Payment = Selling Price - (Advance Payment + Registration Fee)
+  // Auto-calculate Balance Payment = Selling Price + Registration Fee - Advance Payment
   useEffect(() => {
     if (step !== 'customer-form') return
     const selling = parseFloat(formData.sellingPrice) || 0
     const advance = parseFloat(formData.advancePaymentAmount) || 0
     const regFee = parseFloat(formData.registrationFee) || 0
-    const balance = Math.max(0, selling - (advance + regFee))
+    const balance = Math.max(0, selling + regFee - advance)
     setFormData((f) => ({ ...f, balancePaymentAmount: String(balance) }))
   }, [step, formData.sellingPrice, formData.advancePaymentAmount, formData.registrationFee])
 
