@@ -43,7 +43,7 @@ const MENU_ITEMS: Array<{ path: string; icon: React.ComponentType<LucideProps>; 
   { path: '/bike-models', icon: Bike, label: 'Models', settingKey: 'Models', section: 'inventory' },
   { path: '/category', icon: Layers, label: 'Category', settingKey: 'Category', section: 'inventory' },
   { path: '/transfer', icon: ArrowRightLeft, label: 'Transfer', settingKey: 'Transfer', section: 'inventory' },
-  { path: '/customers', icon: Users, label: 'Customers', settingKey: 'Customer', section: 'stakeholders' },
+  { path: '/customers', icon: Users, label: 'Customers', settingKey: 'Customers', section: 'stakeholders' },
   { path: '/dealer-invoice', icon: FileText, label: 'Dealer', settingKey: 'Dealer', section: 'stakeholders' },
   { path: '/courier', icon: Truck, label: 'Courier', settingKey: 'Courier', section: 'stakeholders' },
   { path: '/profile', icon: User, label: 'Profile', settingKey: 'Profile', section: 'admin' },
