@@ -6,8 +6,11 @@ import { CustomerProvider } from '@/context/CustomerContext'
 import { InvoiceProvider } from '@/context/InvoiceContext'
 import { ProductProvider } from '@/context/ProductContext'
 import { ShopDetailProvider } from '@/context/ShopDetailContext'
+import { registerServiceWorker } from '@/lib/pwaInstall'
 import App from './App'
 import './index.css'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

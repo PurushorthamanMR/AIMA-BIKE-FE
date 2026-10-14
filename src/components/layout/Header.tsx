@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
-import { LogOut, Maximize2, Minimize2 } from 'lucide-react'
+import { usePwaInstall } from '@/hooks/usePwaInstall'
+import { openInstallDialog } from '@/lib/pwaInstall'
+import { Download, LogOut, Maximize2, Minimize2 } from 'lucide-react'
 
 export default function Header() {
   const { user, logout } = useAuth()
+  const { canInstall, canPrompt, install } = usePwaInstall()
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement)
 
   useEffect(() => {
@@ -41,6 +44,17 @@ export default function Header() {
         </span>
       </div>
       <div className="d-flex align-items-center gap-2">
+        {canInstall && (
+          <Button
+            size="sm"
+            onClick={() => (canPrompt ? install() : openInstallDialog())}
+            title="Install App"
+            style={{ background: 'var(--aima-primary)', color: 'white' }}
+          >
+            <Download size={16} className="me-1" />
+            Install App
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
